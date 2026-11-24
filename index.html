@@ -1213,8 +1213,18 @@
     // -----------------------------------------------------------------------
     // Firebase Configuration & Constants
     // -----------------------------------------------------------------------
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAhHAH8JNuhd-JSzgOQIqvxAAxaYqIwXuA",
+      authDomain: "sponsorship-ledger.firebaseapp.com",
+      projectId: "sponsorship-ledger",
+      storageBucket: "sponsorship-ledger.firebasestorage.app",
+      messagingSenderId: "574045967057",
+      appId: "1:574045967057:web:c3cf82631ab2d89a086bf0",
+      measurementId: "G-N85VJJFR7S"
+    };
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'sponsorship-ledger-prod';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : DEFAULT_FIREBASE_CONFIG;
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     const DIRECT_DISTRIBUTOR_ID = '__direct__';
@@ -1254,6 +1264,65 @@
         lastAutoDownloadedDate: null
       }
     };
+
+    // -----------------------------------------------------------------------
+    // Navigation & Modal Helpers
+    // -----------------------------------------------------------------------
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+      document.querySelectorAll('.tab-section').forEach(sec => {
+        sec.classList.toggle('hidden', sec.id !== `tab-${tabName}`);
+      });
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const active = btn.dataset.nav === tabName;
+        btn.className = active
+          ? 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 transition'
+          : 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition';
+      });
+
+      document.querySelectorAll('.nav-btn-mobile').forEach(btn => {
+        const active = btn.dataset.nav === tabName;
+        btn.className = active
+          ? 'nav-btn-mobile flex flex-col items-center justify-center gap-1 text-indigo-600 font-semibold transition px-1'
+          : 'nav-btn-mobile flex flex-col items-center justify-center gap-1 text-slate-500 transition px-1';
+      });
+
+      const titles = {
+        dashboard: 'Dashboard',
+        ledger: 'Sponsorship Ledger',
+        customers: 'Customers',
+        distributors: 'Distributors',
+        products: 'Products'
+      };
+      const mobileTitle = document.getElementById('mobile-header-title');
+      if (mobileTitle) mobileTitle.textContent = titles[tabName] || 'SponsorLedger';
+
+      renderAll();
+    }
+
+    function closeModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.add('hidden');
+    }
+
+    function openConfirmModal(title, message, okLabel, onConfirm) {
+      document.getElementById('confirm-title').textContent = title || 'Are you sure?';
+      document.getElementById('confirm-message').textContent = message || '';
+      const okBtn = document.getElementById('confirm-ok-btn');
+      okBtn.textContent = okLabel || 'Confirm';
+      okBtn.onclick = async () => {
+        closeConfirmModal();
+        if (typeof onConfirm === 'function') {
+          await onConfirm();
+        }
+      };
+      document.getElementById('modal-confirm').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('modal-confirm').classList.add('hidden');
+    }
 
     // -----------------------------------------------------------------------
     // Company Branding & Logo Management
@@ -1635,6 +1704,52 @@
       };
     }
 
+    function getCustomerStats(customerId) {
+      let earned = 0;
+      let paid = 0;
+      let txCount = 0;
+      state.transactions.forEach(t => {
+        if (t.customerId !== customerId) return;
+        txCount++;
+        const amt = Number(t.amount) || 0;
+        if (t.type === 'credit') earned += amt;
+        else if (t.type === 'debit') paid += amt;
+      });
+      earned = Math.round(earned * 100) / 100;
+      paid = Math.round(paid * 100) / 100;
+      const pending = Math.round((earned - paid) * 100) / 100;
+      return { earned, paid, pending, txCount };
+    }
+
+    function getDistributorStats(distributorId) {
+      let dispatches = 0;
+      let totalQty = 0;
+      let sponsorValue = 0;
+      let moneyReceived = 0;
+      let collectionCount = 0;
+
+      state.transactions.forEach(t => {
+        if (t.type === 'credit' && t.distributorId === distributorId) {
+          dispatches++;
+          sponsorValue += Number(t.amount) || 0;
+          getTransactionItems(t).forEach(it => {
+            totalQty += Number(it.quantity) || 0;
+          });
+        } else if (t.type === 'debit' && t.receivedFromDistributor && t.distributorId === distributorId) {
+          collectionCount++;
+          moneyReceived += Number(t.amount) || 0;
+        }
+      });
+
+      return {
+        dispatches,
+        totalQty: Math.round(totalQty * 100) / 100,
+        sponsorValue: Math.round(sponsorValue * 100) / 100,
+        moneyReceived: Math.round(moneyReceived * 100) / 100,
+        collectionCount
+      };
+    }
+
     // -----------------------------------------------------------------------
     // Cloud Firestore Layer & Local Fallback
     // -----------------------------------------------------------------------
@@ -1813,7 +1928,6 @@
         unsubscribers.push(unsub);
       });
 
-      // Watch Company Profile & Logo settings in real time
       const companyDocRef = getPublicDocRef('settings', 'company_profile');
       const unsubCompany = onSnapshot(companyDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -1835,7 +1949,6 @@
     async function saveCloudRecord(colName, docId, payload) {
       const record = { id: docId, ...payload };
       if (!db || !currentUser) {
-        // Fallback local mode
         const list = state[colName];
         const idx = list.findIndex(x => x.id === docId);
         if (idx >= 0) list[idx] = record;
@@ -1904,308 +2017,11 @@
       } catch (err) {
         console.error('Firebase initialization error:', err);
         updateCloudStatusUI('offline', 'Local Fallback');
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // JSON Backup & Cloud Restore
-    // -----------------------------------------------------------------------
-    function buildBackupPayload() {
-      return {
-        app: 'SponsorLedger',
-        version: '3.0-cloud',
-        exportedAt: new Date().toISOString(),
-        workspaceId: appId,
-        companyProfile: state.companyProfile,
-        customers: state.customers,
-        distributors: state.distributors,
-        products: state.products,
-        transactions: state.transactions
-      };
-    }
-
-    function downloadJSONFile(payloadObj, filename) {
-      const jsonStr = JSON.stringify(payloadObj, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function maybeAutoDownloadDailyJSON() {
-      if (!state.settings.autoDownloadDaily) return;
-      const today = getTodayISO();
-      if (state.settings.lastAutoDownloadedDate === today) return;
-      state.settings.lastAutoDownloadedDate = today;
-      saveSettings();
-      downloadJSONFile(buildBackupPayload(), `sponsorship_ledger_backup_${today}.json`);
-    }
-
-    function openBackupModal() {
-      renderBackupModal();
-      document.getElementById('modal-backup').classList.remove('hidden');
-    }
-
-    function renderBackupModal() {
-      document.getElementById('cloud-workspace-id').textContent = appId;
-      document.getElementById('cloud-user-id').textContent = currentUser ? currentUser.uid : 'Offline / Local Session';
-      document.getElementById('backup-count-customers').textContent = state.customers.length;
-      document.getElementById('backup-count-distributors').textContent = state.distributors.length;
-      document.getElementById('backup-count-products').textContent = state.products.length;
-      document.getElementById('backup-count-transactions').textContent = state.transactions.length;
-      document.getElementById('toggle-auto-download').checked = Boolean(state.settings.autoDownloadDaily);
-      renderCompanyBranding();
-      updateCloudStatusUI(db && currentUser ? 'live' : 'offline');
-    }
-
-    function toggleAutoDownloadSetting(enabled) {
-      state.settings.autoDownloadDaily = Boolean(enabled);
-      saveSettings();
-      showToast(enabled ? 'Daily auto-download enabled.' : 'Daily auto-download disabled.', 'info');
-    }
-
-    function triggerManualBackupDownload() {
-      const today = getTodayISO();
-      downloadJSONFile(buildBackupPayload(), `sponsorship_ledger_backup_${today}.json`);
-      showToast('JSON backup exported.');
-    }
-
-    function handleRestoreFileSelect(event) {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          const customers = Array.isArray(parsed.customers) ? parsed.customers : [];
-          const distributors = Array.isArray(parsed.distributors) ? parsed.distributors : [];
-          const products = Array.isArray(parsed.products) ? parsed.products : [];
-          const transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
-          const importedCompany = parsed.companyProfile && typeof parsed.companyProfile === 'object' ? parsed.companyProfile : null;
-
-          if (!customers.length && !distributors.length && !products.length && !transactions.length && !importedCompany) {
-            return showToast('Selected JSON file contains no valid records.', 'error');
-          }
-
-          openConfirmModal(
-            'Import Backup to Cloud?',
-            `This will upsert ${customers.length} customers, ${distributors.length} distributors, ${products.length} products, and ${transactions.length} transactions into the database.`,
-            'Import Data',
-            async () => {
-              await importRecordsBatch({ customers, distributors, products, transactions, companyProfile: importedCompany });
-            }
-          );
-        } catch (err) {
-          console.error('JSON parse error:', err);
-          showToast('Invalid JSON backup file.', 'error');
+        const lastTimeEl = document.getElementById('backup-last-time');
+        if (lastTimeEl) {
+          lastTimeEl.textContent = 'Enable Anonymous Auth & Firestore in Firebase Console';
         }
-      };
-      reader.readAsText(file);
-    }
-
-    async function importRecordsBatch({ customers, distributors, products, transactions, companyProfile = null }) {
-      const allOps = [
-        ...customers.map(c => ({ col: 'customers', id: c.id || generateId('cust'), data: c })),
-        ...distributors.map(d => ({ col: 'distributors', id: d.id || generateId('dist'), data: d })),
-        ...products.map(p => ({ col: 'products', id: p.id || generateId('prod'), data: p })),
-        ...transactions.map(t => ({ col: 'transactions', id: t.id || generateId('tx'), data: t }))
-      ];
-
-      if (companyProfile) {
-        state.companyProfile = {
-          name: (companyProfile.name || '').trim() || 'SponsorLedger',
-          tagline: (companyProfile.tagline || '').trim() || 'Cloud ₹ Ledger',
-          logoData: companyProfile.logoData || ''
-        };
-        saveCompanyProfileLocal();
-        renderCompanyBranding();
-        allOps.push({
-          col: 'settings',
-          id: 'company_profile',
-          data: { ...state.companyProfile, updatedAt: new Date().toISOString() }
-        });
       }
-
-      if (!db || !currentUser) {
-        allOps.forEach(op => {
-          const list = state[op.col];
-          const rec = { id: op.id, ...op.data };
-          const idx = list.findIndex(x => x.id === op.id);
-          if (idx >= 0) list[idx] = rec;
-          else list.push(rec);
-        });
-        onCloudSnapshotUpdated();
-        showToast('Backup imported locally.');
-        return;
-      }
-
-      updateCloudStatusUI('syncing');
-      try {
-        for (let i = 0; i < allOps.length; i += 400) {
-          const chunk = allOps.slice(i, i + 400);
-          const batch = writeBatch(db);
-          chunk.forEach(op => {
-            batch.set(getPublicDocRef(op.col, op.id), { id: op.id, ...op.data });
-          });
-          await batch.commit();
-        }
-        updateCloudStatusUI('live');
-        showToast(`Imported ${allOps.length} records to cloud.`);
-      } catch (err) {
-        console.error('Batch import error:', err);
-        updateCloudStatusUI('live');
-        showToast('Failed to import backup to cloud.', 'error');
-      }
-    }
-
-    function confirmClearAllData() {
-      openConfirmModal(
-        'Clear All Cloud Data?',
-        'This will permanently delete every customer, distributor, product, and transaction from the cloud database. Export a JSON backup first if needed.',
-        'Delete Everything',
-        async () => {
-          const allDeletes = [
-            ...state.customers.map(c => ({ col: 'customers', id: c.id })),
-            ...state.distributors.map(d => ({ col: 'distributors', id: d.id })),
-            ...state.products.map(p => ({ col: 'products', id: p.id })),
-            ...state.transactions.map(t => ({ col: 'transactions', id: t.id }))
-          ];
-
-          if (!db || !currentUser) {
-            state.customers = [];
-            state.distributors = [];
-            state.products = [];
-            state.transactions = [];
-            onCloudSnapshotUpdated();
-            showToast('All local data cleared.');
-            return;
-          }
-
-          updateCloudStatusUI('syncing');
-          try {
-            for (let i = 0; i < allDeletes.length; i += 400) {
-              const chunk = allDeletes.slice(i, i + 400);
-              const batch = writeBatch(db);
-              chunk.forEach(item => batch.delete(getPublicDocRef(item.col, item.id)));
-              await batch.commit();
-            }
-            updateCloudStatusUI('live');
-            showToast('All cloud data cleared.');
-          } catch (err) {
-            console.error('Clear cloud data error:', err);
-            updateCloudStatusUI('live');
-            showToast('Failed to clear cloud data.', 'error');
-          }
-        }
-      );
-    }
-
-    // -----------------------------------------------------------------------
-    // Navigation & Modals
-    // -----------------------------------------------------------------------
-    function switchTab(tabName) {
-      state.activeTab = tabName;
-      document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
-      const activeSec = document.getElementById(`tab-${tabName}`);
-      if (activeSec) activeSec.classList.remove('hidden');
-
-      const titles = {
-        dashboard: 'Dashboard',
-        ledger: 'Sponsorship Ledger',
-        customers: 'Customers',
-        distributors: 'Distributors',
-        products: 'Products'
-      };
-      const mobTitle = document.getElementById('mobile-header-title');
-      if (mobTitle) mobTitle.textContent = titles[tabName] || 'SponsorLedger';
-
-      document.querySelectorAll('.nav-btn').forEach(btn => {
-        const isActive = btn.dataset.nav === tabName;
-        btn.className = isActive
-          ? 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 transition'
-          : 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition';
-      });
-
-      document.querySelectorAll('.nav-btn-mobile').forEach(btn => {
-        const isActive = btn.dataset.nav === tabName;
-        btn.className = isActive
-          ? 'nav-btn-mobile flex flex-col items-center justify-center gap-1 text-indigo-600 font-semibold transition px-1'
-          : 'nav-btn-mobile flex flex-col items-center justify-center gap-1 text-slate-500 transition px-1';
-      });
-
-      renderAll();
-    }
-
-    function closeModal(modalId) {
-      const el = document.getElementById(modalId);
-      if (el) el.classList.add('hidden');
-    }
-
-    let confirmCallback = null;
-    function openConfirmModal(title, message, okLabel, onConfirm) {
-      document.getElementById('confirm-title').textContent = title;
-      document.getElementById('confirm-message').textContent = message;
-      const okBtn = document.getElementById('confirm-ok-btn');
-      okBtn.textContent = okLabel || 'Confirm';
-      confirmCallback = onConfirm;
-      okBtn.onclick = async () => {
-        const cb = confirmCallback;
-        closeConfirmModal();
-        if (cb) await cb();
-      };
-      document.getElementById('modal-confirm').classList.remove('hidden');
-    }
-
-    function closeConfirmModal() {
-      confirmCallback = null;
-      document.getElementById('modal-confirm').classList.add('hidden');
-    }
-
-    // -----------------------------------------------------------------------
-    // Stats Calculations
-    // -----------------------------------------------------------------------
-    function getCustomerStats(customerId) {
-      let earned = 0;
-      let paid = 0;
-      state.transactions.forEach(tx => {
-        if (tx.customerId !== customerId) return;
-        const amt = Number(tx.amount) || 0;
-        if (tx.type === 'credit') earned += amt;
-        else if (tx.type === 'debit') paid += amt;
-      });
-      return {
-        earned,
-        paid,
-        pending: Math.max(0, earned - paid)
-      };
-    }
-
-    function getDistributorStats(distributorId) {
-      let dispatches = 0;
-      let totalQty = 0;
-      let sponsorValue = 0;
-      let moneyReceived = 0;
-
-      state.transactions.forEach(tx => {
-        if (tx.type === 'credit' && tx.distributorId === distributorId) {
-          dispatches += 1;
-          sponsorValue += Number(tx.amount) || 0;
-          getTransactionItems(tx).forEach(it => {
-            totalQty += Number(it.quantity) || 0;
-          });
-        } else if (tx.type === 'debit' && tx.receivedFromDistributor && tx.distributorId === distributorId) {
-          moneyReceived += Number(tx.amount) || 0;
-        }
-      });
-
-      return { dispatches, totalQty, sponsorValue, moneyReceived };
     }
 
     // -----------------------------------------------------------------------
@@ -2219,208 +2035,223 @@
       renderProducts();
     }
 
+    // -----------------------------------------------------------------------
+    // TAB 1: DASHBOARD RENDERING & SEARCH
+    // -----------------------------------------------------------------------
     function clearDashboardFilters() {
-      const s = document.getElementById('dashboard-search');
-      const f = document.getElementById('dashboard-pending-filter');
-      const sort = document.getElementById('dashboard-pending-sort');
-      if (s) s.value = '';
-      if (f) f.value = 'pending_only';
-      if (sort) sort.value = 'pending_desc';
+      const searchEl = document.getElementById('dashboard-search');
+      const filterEl = document.getElementById('dashboard-pending-filter');
+      const sortEl = document.getElementById('dashboard-pending-sort');
+      if (searchEl) searchEl.value = '';
+      if (filterEl) filterEl.value = 'pending_only';
+      if (sortEl) sortEl.value = 'pending_desc';
       renderDashboard();
     }
 
     function renderDashboard() {
       let totalEarned = 0;
       let totalPaid = 0;
-      let totalDistRecovered = 0;
+      let totalDistReceived = 0;
 
-      state.transactions.forEach(tx => {
-        const amt = Number(tx.amount) || 0;
-        if (tx.type === 'credit') totalEarned += amt;
-        else if (tx.type === 'debit') {
+      state.transactions.forEach(t => {
+        const amt = Number(t.amount) || 0;
+        if (t.type === 'credit') {
+          totalEarned += amt;
+        } else if (t.type === 'debit') {
           totalPaid += amt;
-          if (tx.receivedFromDistributor) totalDistRecovered += amt;
+          if (t.receivedFromDistributor) {
+            totalDistReceived += amt;
+          }
         }
       });
 
-      const netPending = Math.max(0, totalEarned - totalPaid);
+      const netPending = Math.round((totalEarned - totalPaid) * 100) / 100;
       document.getElementById('kpi-earned').textContent = formatINR(totalEarned);
       document.getElementById('kpi-paid').textContent = formatINR(totalPaid);
-      document.getElementById('kpi-paid-sub').textContent = totalDistRecovered > 0
-        ? `Includes ${formatINR(totalDistRecovered)} rec'd from dist.`
+      document.getElementById('kpi-paid-sub').textContent = totalDistReceived > 0
+        ? `Rec'd from Dist: ${formatINR(totalDistReceived)}`
         : 'Settled payouts';
       document.getElementById('kpi-pending').textContent = formatINR(netPending);
       document.getElementById('kpi-customers').textContent = state.customers.length;
-      document.getElementById('kpi-sub-counts').textContent = `${state.distributors.length} distributor${state.distributors.length === 1 ? '' : 's'} • ${state.products.length} product${state.products.length === 1 ? '' : 's'}`;
+      document.getElementById('kpi-sub-counts').textContent =
+        `${state.distributors.length} distributor${state.distributors.length === 1 ? '' : 's'} • ${state.products.length} product${state.products.length === 1 ? '' : 's'}`;
 
-      // Dashboard Search & Pending Filter
-      const rawSearch = (document.getElementById('dashboard-search')?.value || '').trim();
-      const query = rawSearch.toLowerCase();
-      const statusFilter = document.getElementById('dashboard-pending-filter')?.value || 'pending_only';
+      const rawQuery = (document.getElementById('dashboard-search')?.value || '').trim();
+      const queryLower = rawQuery.toLowerCase();
+      const filterMode = document.getElementById('dashboard-pending-filter')?.value || 'pending_only';
       const sortMode = document.getElementById('dashboard-pending-sort')?.value || 'pending_desc';
 
       const clearBtn = document.getElementById('dashboard-search-clear');
-      if (clearBtn) clearBtn.classList.toggle('hidden', rawSearch.length === 0);
+      if (clearBtn) clearBtn.classList.toggle('hidden', rawQuery.length === 0);
 
       const resetBtn = document.getElementById('dashboard-reset-btn');
       if (resetBtn) {
-        const hasActiveFilter = rawSearch.length > 0 || statusFilter !== 'pending_only' || sortMode !== 'pending_desc';
-        resetBtn.classList.toggle('hidden', !hasActiveFilter);
+        const hasFilters = rawQuery.length > 0 || filterMode !== 'pending_only' || sortMode !== 'pending_desc';
+        resetBtn.classList.toggle('hidden', !hasFilters);
       }
 
-      const numericCleaned = rawSearch.replace(/[₹,\s]/g, '');
-      const isNumericQuery = numericCleaned.length > 0 && !isNaN(Number(numericCleaned));
-      const minPendingThreshold = isNumericQuery ? Number(numericCleaned) : null;
+      // Parse numeric minimum pending query (e.g. "5000" or "₹5,000")
+      const numericClean = rawQuery.replace(/[₹,\s]/g, '');
+      const isNumericQuery = numericClean.length > 0 && /^\d+(\.\d+)?$/.test(numericClean);
+      const minPendingVal = isNumericQuery ? parseFloat(numericClean) : null;
 
-      let rows = state.customers.map(c => ({
-        customer: c,
+      let customerEntries = state.customers.map(c => ({
+        cust: c,
         stats: getCustomerStats(c.id)
       }));
 
-      if (statusFilter === 'pending_only') {
-        rows = rows.filter(r => r.stats.pending > 0);
-      } else if (statusFilter === 'settled') {
-        rows = rows.filter(r => r.stats.pending <= 0);
+      // Filter by pending status
+      if (filterMode === 'pending_only') {
+        customerEntries = customerEntries.filter(e => e.stats.pending > 0);
+      } else if (filterMode === 'settled') {
+        customerEntries = customerEntries.filter(e => e.stats.pending <= 0);
       }
 
-      if (query) {
-        rows = rows.filter(({ customer: c, stats }) => {
-          const fullName = getCustomerFullName(c).toLowerCase();
-          const dept = (c.department || '').toLowerCase();
-          const org = (c.organization || '').toLowerCase();
-          const branch = (c.branch || '').toLowerCase();
-          const phone = (c.phone || '').toLowerCase();
-          const prods = (c.mappedProducts || []).map(p => (p.productName || '').toLowerCase()).join(' ');
-          const textMatch = fullName.includes(query) || dept.includes(query) || org.includes(query) || branch.includes(query) || phone.includes(query) || prods.includes(query);
-          const pendingMatch = minPendingThreshold !== null && stats.pending >= minPendingThreshold;
-          return textMatch || pendingMatch;
+      // Filter by search query (name, dept, org, branch, phone, mapped products, preferred dist, or min ₹ pending)
+      if (queryLower) {
+        customerEntries = customerEntries.filter(({ cust, stats }) => {
+          if (isNumericQuery && minPendingVal !== null) {
+            const matchesMinPending = stats.pending >= minPendingVal;
+            const matchesPhone = (cust.phone || '').includes(numericClean);
+            return matchesMinPending || matchesPhone;
+          }
+          const fullName = getCustomerFullName(cust).toLowerCase();
+          const dept = (cust.department || '').toLowerCase();
+          const org = (cust.organization || '').toLowerCase();
+          const branch = (cust.branch || '').toLowerCase();
+          const phone = (cust.phone || '').toLowerCase();
+          const distName = cust.preferredDistributorId ? getDistributorNameById(cust.preferredDistributorId).toLowerCase() : '';
+          const prods = (cust.mappedProducts || []).map(p => (p.productName || '').toLowerCase()).join(' ');
+          return fullName.includes(queryLower) ||
+            dept.includes(queryLower) ||
+            org.includes(queryLower) ||
+            branch.includes(queryLower) ||
+            phone.includes(queryLower) ||
+            distName.includes(queryLower) ||
+            prods.includes(queryLower);
         });
       }
 
-      rows.sort((a, b) => {
+      // Sort
+      customerEntries.sort((a, b) => {
         if (sortMode === 'pending_asc') return a.stats.pending - b.stats.pending;
-        if (sortMode === 'name_asc') return getCustomerFullName(a.customer).localeCompare(getCustomerFullName(b.customer));
+        if (sortMode === 'name_asc') return getCustomerFullName(a.cust).localeCompare(getCustomerFullName(b.cust));
         return b.stats.pending - a.stats.pending;
       });
 
-      const countBadge = document.getElementById('dashboard-pending-count');
-      if (countBadge) countBadge.textContent = rows.length;
+      const countEl = document.getElementById('dashboard-pending-count');
+      if (countEl) countEl.textContent = customerEntries.length;
 
-      const pendingSubEl = document.getElementById('dashboard-pending-subtitle');
-      if (pendingSubEl) {
+      const subEl = document.getElementById('dashboard-pending-subtitle');
+      if (subEl) {
         if (isNumericQuery) {
-          pendingSubEl.textContent = `Showing customers with pending ≥ ${formatINR(minPendingThreshold)}`;
-        } else if (statusFilter === 'all') {
-          pendingSubEl.textContent = 'All customer balances';
-        } else if (statusFilter === 'settled') {
-          pendingSubEl.textContent = 'Customers with ₹0 pending due';
+          subEl.textContent = `Showing customers with pending ≥ ${formatINR(minPendingVal)}`;
+        } else if (filterMode === 'all') {
+          subEl.textContent = 'All customer balances';
+        } else if (filterMode === 'settled') {
+          subEl.textContent = 'Customers with ₹0 pending due';
         } else {
-          pendingSubEl.textContent = 'Customers with outstanding sponsorship due';
+          subEl.textContent = 'Customers with outstanding sponsorship due';
         }
       }
 
       const pendingListEl = document.getElementById('dashboard-pending-list');
-      if (rows.length === 0) {
+      if (customerEntries.length === 0) {
         pendingListEl.innerHTML = `
           <div class="p-8 text-center">
-            <p class="text-sm font-medium text-slate-600">${rawSearch ? 'No matching customers or pendings' : 'No pending balances'}</p>
-            <p class="text-xs text-slate-400 mt-1">${rawSearch ? 'Try clearing the search or switching the status filter.' : 'All sponsorship accounts are currently settled.'}</p>
+            <p class="text-sm font-medium text-slate-600">No matching customer balances found</p>
+            <p class="text-xs text-slate-400 mt-1">${state.customers.length === 0 ? 'Add your first customer to start tracking sponsorships.' : 'Try adjusting your search or pending status filter.'}</p>
           </div>
         `;
       } else {
-        pendingListEl.innerHTML = rows.map(({ customer: c, stats }) => {
-          const metaParts = [c.department, getCustomerOrgBranchLabel(c)].filter(Boolean);
-          const pendingColor = stats.pending > 0 ? 'text-amber-600' : 'text-emerald-600';
+        pendingListEl.innerHTML = customerEntries.map(({ cust, stats }) => {
+          const meta = [cust.department, getCustomerOrgBranchLabel(cust)].filter(Boolean).join(' • ');
+          const pendingClass = stats.pending > 0 ? 'text-amber-600' : 'text-emerald-600';
           return `
-            <div class="px-5 py-3.5 hover:bg-slate-50/80 transition flex items-center justify-between gap-3">
-              <div class="min-w-0 flex-1 cursor-pointer" onclick="openCustomerDrawer('${c.id}')">
-                <p class="text-sm font-semibold text-slate-900 truncate hover:text-indigo-600">${escapeHTML(getCustomerFullName(c))}</p>
-                <p class="text-xs text-slate-500 truncate">${metaParts.length ? escapeHTML(metaParts.join(' • ')) + ' • ' : ''}Earned ${formatINR(stats.earned)} • Paid ${formatINR(stats.paid)}</p>
+            <div onclick="openCustomerDrawer('${cust.id}')" class="px-5 py-3.5 hover:bg-slate-50/90 transition cursor-pointer flex items-center justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-slate-900 truncate">${escapeHTML(getCustomerFullName(cust))}</p>
+                ${meta ? `<p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(meta)}</p>` : ''}
+                <p class="text-[11px] text-slate-400 mt-1">Earned ${formatINR(stats.earned)} • Paid ${formatINR(stats.paid)}</p>
               </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="text-sm font-bold ${pendingColor}">${formatINR(stats.pending)}</span>
-                <button onclick="openTransactionModal('credit', null, '${c.id}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition" title="Log Sponsorship">+ Units</button>
-                <button onclick="openTransactionModal('debit', null, '${c.id}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition">Pay</button>
+              <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
+                <div class="text-right mr-1">
+                  <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pending</span>
+                  <span class="text-sm font-bold ${pendingClass}">${formatINR(stats.pending)}</span>
+                </div>
+                <button onclick="openTransactionModal('credit', null, '${cust.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition" title="Log Sponsorship">+ Units</button>
+                ${stats.pending > 0 ? `<button onclick="openTransactionModal('debit', null, '${cust.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition" title="Record Payout">Pay</button>` : ''}
               </div>
             </div>
           `;
         }).join('');
       }
 
-      // Recent Transactions List
-      const matchedCustomerIds = (query && !isNumericQuery)
-        ? new Set(rows.map(r => r.customer.id))
+      // Recent Transactions (syncs with customer search text if active)
+      const matchingCustomerIds = queryLower && !isNumericQuery
+        ? new Set(customerEntries.map(e => e.cust.id))
         : null;
 
-      let recentSource = [...state.transactions];
-      if (matchedCustomerIds && matchedCustomerIds.size > 0) {
-        recentSource = recentSource.filter(t => matchedCustomerIds.has(t.customerId));
+      let recentTxs = [...state.transactions]
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+      if (matchingCustomerIds) {
+        recentTxs = recentTxs.filter(t => matchingCustomerIds.has(t.customerId));
       }
+      recentTxs = recentTxs.slice(0, 10);
 
       const recentSubEl = document.getElementById('dashboard-recent-subtitle');
       if (recentSubEl) {
-        recentSubEl.textContent = (matchedCustomerIds && matchedCustomerIds.size > 0)
-          ? `Showing latest entries for matching customer${matchedCustomerIds.size > 1 ? 's' : ''}`
+        recentSubEl.textContent = matchingCustomerIds
+          ? `Filtered transactions for "${rawQuery}"`
           : 'Latest sponsorships (with distributor) & payouts';
       }
 
-      const recent = recentSource
-        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''))
-        .slice(0, 8);
-
       const recentListEl = document.getElementById('dashboard-recent-list');
-      if (recent.length === 0) {
+      if (recentTxs.length === 0) {
         recentListEl.innerHTML = `
           <div class="p-8 text-center">
-            <p class="text-sm font-medium text-slate-600">No transactions yet</p>
-            <p class="text-xs text-slate-400 mt-1">Tap “Log Sponsorship” to record your first entry.</p>
+            <p class="text-sm font-medium text-slate-600">No recent transactions</p>
+            <p class="text-xs text-slate-400 mt-1">Tap "Log Sponsorship" to add your first entry.</p>
           </div>
         `;
       } else {
-        recentListEl.innerHTML = recent.map(tx => {
+        recentListEl.innerHTML = recentTxs.map(tx => {
           const cust = state.customers.find(c => c.id === tx.customerId);
           const custName = cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || 'Customer');
           const isCredit = tx.type === 'credit';
-          let subtitle = '';
-          let distBadge = '';
+          const items = getTransactionItems(tx);
+          const distLabel = getDistributorLabel(tx);
 
-          if (isCredit) {
-            const items = getTransactionItems(tx);
-            const distLabel = getDistributorLabel(tx);
-            if (distLabel && distLabel !== DIRECT_DISTRIBUTOR_LABEL) {
-              distBadge = `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 text-[10px] font-semibold border border-sky-200/70 truncate max-w-[140px]">Dist: ${escapeHTML(distLabel)}</span>`;
-            }
-            if (items.length === 1) {
-              subtitle = `${items[0].productName} • ${items[0].quantity} ${items[0].unitType || 'Bag'}${Number(items[0].quantity) === 1 ? '' : 's'}`;
-            } else {
-              subtitle = `${items.length} products (${items.map(i => i.productName).join(', ')})`;
-            }
-          } else {
-            const distLabel = tx.receivedFromDistributor ? getDistributorLabel(tx) : '';
-            if (distLabel) {
-              distBadge = `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 text-[10px] font-semibold border border-sky-200/70 truncate max-w-[160px]">Rec&apos;d: ${escapeHTML(distLabel)}</span>`;
-            }
-            const linkedIds = getLinkedTransactionIds(tx);
-            const linkedLabel = linkedIds.length > 0
-              ? ` • Against ${linkedIds.length} sponsorship${linkedIds.length === 1 ? '' : 's'}`
-              : '';
-            subtitle = `Payout via ${tx.paymentMode || 'Cash'}${linkedLabel}${tx.remarks ? ' • ' + tx.remarks : ''}`;
-          }
+          const detailLine = isCredit
+            ? (items.length === 1
+                ? `${items[0].productName} (${items[0].quantity} ${items[0].unitType || 'Bag'})`
+                : `${items.length} products (${items.map(i => i.productName).join(', ')})`)
+            : `Payout via ${tx.paymentMode || 'Cash'}`;
+
+          const badgeHtml = isCredit && distLabel && distLabel !== DIRECT_DISTRIBUTOR_LABEL
+            ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70 truncate max-w-[140px]">Dist: ${escapeHTML(distLabel)}</span>`
+            : (!isCredit && tx.receivedFromDistributor && distLabel
+                ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70 truncate max-w-[140px]">Rec'd: ${escapeHTML(distLabel)}</span>`
+                : '');
 
           return `
-            <div class="px-5 py-3.5 hover:bg-slate-50/80 transition flex items-center justify-between gap-3">
+            <div onclick="openCustomerDrawer('${tx.customerId}')" class="px-5 py-3.5 hover:bg-slate-50/90 transition cursor-pointer flex items-center justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <p class="text-sm font-semibold text-slate-900 truncate">${escapeHTML(custName)}</p>
-                  ${distBadge}
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-slate-400 shrink-0">${formatDateIN(tx.date)}</span>
+                  <p class="text-sm font-bold text-slate-900 truncate">${escapeHTML(custName)}</p>
                 </div>
-                <p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(subtitle)}</p>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-xs text-slate-600 truncate">${escapeHTML(detailLine)}</span>
+                  ${badgeHtml}
+                </div>
               </div>
               <div class="text-right shrink-0">
-                <p class="text-sm font-bold ${isCredit ? 'text-emerald-600' : 'text-indigo-600'}">
+                <span class="text-sm font-bold ${isCredit ? 'text-emerald-600' : 'text-indigo-600'}">
                   ${isCredit ? '+' : '-'}${formatINR(tx.amount)}
-                </p>
-                <p class="text-[11px] text-slate-400">${formatDateIN(tx.date)}</p>
+                </span>
+                <span class="block text-[10px] font-medium text-slate-400">${isCredit ? 'Earned' : 'Paid'}</span>
               </div>
             </div>
           `;
@@ -2428,79 +2259,26 @@
       }
     }
 
+    // -----------------------------------------------------------------------
+    // TAB 2: LEDGER RENDERING & FILTERING
+    // -----------------------------------------------------------------------
     function populateLedgerFilters() {
       const custSel = document.getElementById('ledger-filter-customer');
-      if (custSel) {
-        const curCust = custSel.value || 'all';
-        const sortedCusts = [...state.customers].sort((a, b) => getCustomerFullName(a).localeCompare(getCustomerFullName(b)));
-        custSel.innerHTML = `<option value="all">All Customers</option>` +
-          sortedCusts.map(c => `<option value="${c.id}">${escapeHTML(getCustomerFullName(c))}</option>`).join('');
-        if ([...custSel.options].some(o => o.value === curCust)) custSel.value = curCust;
-      }
-
       const distSel = document.getElementById('ledger-filter-distributor');
-      if (distSel) {
-        const curDist = distSel.value || 'all';
-        const sortedDists = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        distSel.innerHTML = `<option value="all">All Distributors</option><option value="${DIRECT_DISTRIBUTOR_ID}">${DIRECT_DISTRIBUTOR_LABEL}</option>` +
-          sortedDists.map(d => `<option value="${d.id}">${escapeHTML(d.name)}</option>`).join('');
-        if ([...distSel.options].some(o => o.value === curDist)) distSel.value = curDist;
-      }
-    }
+      if (!custSel || !distSel) return;
 
-    function getFilteredLedgerTransactions() {
-      const search = (document.getElementById('ledger-search')?.value || '').trim().toLowerCase();
-      const custFilter = document.getElementById('ledger-filter-customer')?.value || 'all';
-      const distFilter = document.getElementById('ledger-filter-distributor')?.value || 'all';
-      const typeFilter = document.getElementById('ledger-filter-type')?.value || 'all';
-      const monthFilter = document.getElementById('ledger-filter-month')?.value || '';
+      const prevCust = custSel.value || 'all';
+      const prevDist = distSel.value || 'all';
 
-      return state.transactions
-        .filter(tx => {
-          if (custFilter !== 'all' && tx.customerId !== custFilter) return false;
-          if (distFilter !== 'all') {
-            if (distFilter === DIRECT_DISTRIBUTOR_ID) {
-              if (tx.type !== 'credit') return false;
-              if (tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID) return false;
-            } else {
-              if (tx.type === 'credit') {
-                if (tx.distributorId !== distFilter) return false;
-              } else if (tx.type === 'debit') {
-                if (!tx.receivedFromDistributor || tx.distributorId !== distFilter) return false;
-              }
-            }
-          }
-          if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-          if (monthFilter && !(tx.date || '').startsWith(monthFilter)) return false;
+      const sortedCusts = [...state.customers].sort((a, b) => getCustomerFullName(a).localeCompare(getCustomerFullName(b)));
+      custSel.innerHTML = `<option value="all">All Customers</option>` +
+        sortedCusts.map(c => `<option value="${c.id}">${escapeHTML(getCustomerFullName(c))}</option>`).join('');
+      if ([...custSel.options].some(o => o.value === prevCust)) custSel.value = prevCust;
 
-          if (search) {
-            const cust = state.customers.find(c => c.id === tx.customerId);
-            const custName = (cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || '')).toLowerCase();
-            const deptName = (cust?.department || '').toLowerCase();
-            const orgName = (cust?.organization || '').toLowerCase();
-            const branchName = (cust?.branch || '').toLowerCase();
-            const distLabel = getDistributorLabel(tx).toLowerCase();
-            const itemsStr = getTransactionItems(tx).map(i => i.productName).join(' ').toLowerCase();
-            const remarks = (tx.remarks || '').toLowerCase();
-            const mode = (tx.paymentMode || '').toLowerCase();
-            const colRef = (tx.distCollectionRef || '').toLowerCase();
-            if (
-              !custName.includes(search) &&
-              !deptName.includes(search) &&
-              !orgName.includes(search) &&
-              !branchName.includes(search) &&
-              !distLabel.includes(search) &&
-              !itemsStr.includes(search) &&
-              !remarks.includes(search) &&
-              !mode.includes(search) &&
-              !colRef.includes(search)
-            ) {
-              return false;
-            }
-          }
-          return true;
-        })
-        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+      const sortedDists = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      distSel.innerHTML = `<option value="all">All Distributors</option><option value="${DIRECT_DISTRIBUTOR_ID}">${DIRECT_DISTRIBUTOR_LABEL}</option>` +
+        sortedDists.map(d => `<option value="${d.id}">${escapeHTML(d.name)}</option>`).join('');
+      if ([...distSel.options].some(o => o.value === prevDist)) distSel.value = prevDist;
     }
 
     function clearLedgerFilters() {
@@ -2512,254 +2290,321 @@
       renderLedger();
     }
 
-    function renderTransactionCard(tx, showCustomerName = true) {
+    function getFilteredLedgerTransactions() {
+      const q = (document.getElementById('ledger-search')?.value || '').trim().toLowerCase();
+      const custFilter = document.getElementById('ledger-filter-customer')?.value || 'all';
+      const distFilter = document.getElementById('ledger-filter-distributor')?.value || 'all';
+      const typeFilter = document.getElementById('ledger-filter-type')?.value || 'all';
+      const monthFilter = document.getElementById('ledger-filter-month')?.value || '';
+
+      return state.transactions
+        .filter(tx => {
+          if (custFilter !== 'all' && tx.customerId !== custFilter) return false;
+          if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+          if (monthFilter && !(tx.date || '').startsWith(monthFilter)) return false;
+
+          if (distFilter !== 'all') {
+            if (distFilter === DIRECT_DISTRIBUTOR_ID) {
+              if (tx.type !== 'credit' || (tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID)) return false;
+            } else {
+              const matchesCreditDist = tx.type === 'credit' && tx.distributorId === distFilter;
+              const matchesDebitDist = tx.type === 'debit' && tx.receivedFromDistributor && tx.distributorId === distFilter;
+              if (!matchesCreditDist && !matchesDebitDist) return false;
+            }
+          }
+
+          if (q) {
+            const cust = state.customers.find(c => c.id === tx.customerId);
+            const custText = cust
+              ? `${getCustomerFullName(cust)} ${cust.department || ''} ${cust.organization || ''} ${cust.branch || ''}`.toLowerCase()
+              : (tx.customerNameSnapshot || '').toLowerCase();
+            const distText = getDistributorLabel(tx).toLowerCase();
+            const itemsText = getTransactionItems(tx).map(i => i.productName || '').join(' ').toLowerCase();
+            const remarksText = `${tx.remarks || ''} ${tx.paymentMode || ''} ${tx.distCollectionRef || ''}`.toLowerCase();
+            if (!custText.includes(q) && !distText.includes(q) && !itemsText.includes(q) && !remarksText.includes(q)) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+    }
+
+    function renderTransactionCard(tx, showCustomer = true) {
       const cust = state.customers.find(c => c.id === tx.customerId);
-      const custLabel = cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || 'Customer');
+      const custName = cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || 'Customer');
+      const custMeta = cust ? [cust.department, getCustomerOrgBranchLabel(cust)].filter(Boolean).join(' • ') : '';
       const isCredit = tx.type === 'credit';
-      const items = isCredit ? getTransactionItems(tx) : [];
-      const distLabel = getDistributorLabel(tx);
 
-      let distPillHtml = '';
-      if (isCredit && distLabel && distLabel !== DIRECT_DISTRIBUTOR_LABEL) {
-        const canOpenDist = tx.distributorId && state.distributors.some(d => d.id === tx.distributorId);
-        distPillHtml = canOpenDist
-          ? `<button type="button" onclick="openDistributorDrawer('${tx.distributorId}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/70 transition">Dist: ${escapeHTML(distLabel)}</button>`
-          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70">Dist: ${escapeHTML(distLabel)}</span>`;
-      } else if (!isCredit && tx.receivedFromDistributor && distLabel) {
-        const canOpenDist = tx.distributorId && state.distributors.some(d => d.id === tx.distributorId);
-        distPillHtml = canOpenDist
-          ? `<button type="button" onclick="openDistributorDrawer('${tx.distributorId}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/70 transition">Rec&apos;d from: ${escapeHTML(distLabel)}</button>`
-          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70">Rec&apos;d from: ${escapeHTML(distLabel)}</span>`;
-      }
-
-      let collectibleBadgeHtml = '';
-      if (isCredit && tx.collectFromDistributor) {
-        collectibleBadgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/70">Collectible from Dist.</span>`;
-      }
-
-      const creditSetStats = isCredit ? getSponsorshipSettlementStats(tx) : null;
-      let settlementBadgeHtml = '';
-      if (isCredit && creditSetStats && creditSetStats.payoutCount > 0) {
-        settlementBadgeHtml = creditSetStats.isSettled
-          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">Paid</span>`
-          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">Partially Paid • Due: ${formatINR(creditSetStats.remaining)}</span>`;
-      }
-
-      let bodyHtml = '';
       if (isCredit) {
-        bodyHtml = `
-          <div class="mt-2 space-y-1">
-            ${items.map(it => `
-              <div class="flex items-center justify-between gap-2 text-xs sm:text-sm text-slate-700 bg-slate-50/80 rounded-lg px-2.5 py-1.5">
-                <span class="truncate">
-                  <strong class="text-slate-900">${escapeHTML(it.productName)}</strong>
-                  <span class="text-slate-500"> • ${it.quantity} ${escapeHTML(it.unitType || 'Bag')}${Number(it.quantity) === 1 ? '' : 's'} × ${formatINR(it.rate)}</span>
-                </span>
-                <span class="font-semibold text-slate-700 shrink-0">${formatINR(it.subtotal ?? (Number(it.quantity) * Number(it.rate)))}</span>
+        const items = getTransactionItems(tx);
+        const distLabel = getDistributorLabel(tx);
+        const hasRealDist = tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID && state.distributors.some(d => d.id === tx.distributorId);
+        const setStats = getSponsorshipSettlementStats(tx);
+
+        const settlementBadge = setStats.isSettled
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">Paid</span>`
+          : (setStats.allocatedPaid > 0
+              ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">Due: ${formatINR(setStats.remaining)}</span>`
+              : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">Unpaid</span>`);
+
+        const distChip = hasRealDist
+          ? `<button type="button" onclick="openDistributorDrawer('${tx.distributorId}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/70 transition">Dist: ${escapeHTML(distLabel)}</button>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600">${escapeHTML(distLabel)}</span>`;
+
+        const collectBadge = tx.collectFromDistributor
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">Collectible from Dist.</span>`
+          : '';
+
+        const itemsHTML = items.map(it => {
+          const sub = it.subtotal ?? (Number(it.quantity) * Number(it.rate));
+          return `
+            <div class="flex items-center justify-between gap-2 text-xs py-1 border-b border-slate-100 last:border-b-0">
+              <div class="min-w-0">
+                <span class="font-semibold text-slate-800">${escapeHTML(it.productName)}</span>
+                <span class="text-slate-500 ml-1.5">${it.quantity} ${it.unitType === 'Unit' ? 'Unit' : 'Bag'}${Number(it.quantity) === 1 ? '' : 's'} × ${formatINR(it.rate)}</span>
               </div>
-            `).join('')}
+              <span class="font-semibold text-slate-700 shrink-0">${formatINR(sub)}</span>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${formatDateIN(tx.date)}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700">Sponsorship</span>
+                  ${settlementBadge}
+                </div>
+                ${showCustomer ? `
+                  <button type="button" onclick="openCustomerDrawer('${tx.customerId}')" class="text-left mt-1.5 block group">
+                    <p class="text-sm sm:text-base font-bold text-slate-900 group-hover:text-indigo-600 transition">${escapeHTML(custName)}</p>
+                    ${custMeta ? `<p class="text-xs text-slate-500">${escapeHTML(custMeta)}</p>` : ''}
+                  </button>
+                ` : ''}
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                  ${distChip}
+                  ${collectBadge}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-base sm:text-lg font-bold text-emerald-600">+${formatINR(tx.amount)}</p>
+                <div class="flex items-center justify-end gap-1 mt-1.5">
+                  ${!setStats.isSettled ? `<button type="button" onclick="openTransactionModal('debit', null, '${tx.customerId}', null, ['${tx.id}'])" class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition">Pay</button>` : ''}
+                  <button type="button" onclick="openTransactionModal('credit', '${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button type="button" onclick="confirmDeleteTransaction('${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-50/80 rounded-xl px-3 py-2 border border-slate-100">
+              ${itemsHTML}
+            </div>
+
+            ${tx.remarks ? `<p class="text-xs text-slate-500"><span class="font-semibold text-slate-600">Remarks:</span> ${escapeHTML(tx.remarks)}</p>` : ''}
           </div>
         `;
       } else {
+        // Debit / Payout Entry
+        const distLabel = tx.receivedFromDistributor ? getDistributorLabel(tx) : '';
+        const hasRealDist = tx.receivedFromDistributor && tx.distributorId && state.distributors.some(d => d.id === tx.distributorId);
         const linkedIds = getLinkedTransactionIds(tx);
-        let linkedSponsorshipsHtml = '';
-        if (linkedIds.length > 0) {
-          const pills = linkedIds.map(lid => {
-            const ltx = state.transactions.find(t => t.id === lid);
-            if (!ltx) {
-              return `<span class="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-500 border border-slate-200/80">Archived Sponsorship</span>`;
-            }
-            const lDist = getDistributorLabel(ltx);
-            const lItems = getTransactionItems(ltx);
-            const prodSummary = lItems.length === 1
-              ? `${lItems[0].productName} (${lItems[0].quantity})`
-              : `${lItems.length} products`;
-            return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-indigo-50/70 text-indigo-800 border border-indigo-200/70">
-              <span>${formatDateIN(ltx.date)}</span>
-              <span>•</span>
-              <strong>${formatINR(ltx.amount)}</strong>
-              <span class="text-indigo-600/80 truncate max-w-[140px]">(${escapeHTML(prodSummary)}${lDist && lDist !== DIRECT_DISTRIBUTOR_LABEL ? ' • ' + escapeHTML(lDist) : ''})</span>
-            </span>`;
-          }).join('');
 
-          linkedSponsorshipsHtml = `
-            <div class="mt-2 space-y-1">
-              <p class="text-[11px] font-semibold text-slate-500">Against ${linkedIds.length} Sponsorship${linkedIds.length === 1 ? '' : 's'}:</p>
-              <div class="flex flex-wrap gap-1.5">${pills}</div>
+        const linkedBadges = linkedIds.map(lid => {
+          const ltx = state.transactions.find(x => x.id === lid);
+          if (!ltx) return '';
+          return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200/70">For ${formatDateIN(ltx.date)} (${formatINR(ltx.amount)})</span>`;
+        }).filter(Boolean).join('');
+
+        const distReceivedBadge = tx.receivedFromDistributor && distLabel
+          ? (hasRealDist
+              ? `<button type="button" onclick="openDistributorDrawer('${tx.distributorId}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200/70 transition">Rec&apos;d from: ${escapeHTML(distLabel)}</button>`
+              : `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70">Rec&apos;d from: ${escapeHTML(distLabel)}</span>`)
+          : '';
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-2.5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${formatDateIN(tx.date)}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700">Payout • ${escapeHTML(tx.paymentMode || 'Cash')}</span>
+                </div>
+                ${showCustomer ? `
+                  <button type="button" onclick="openCustomerDrawer('${tx.customerId}')" class="text-left mt-1.5 block group">
+                    <p class="text-sm sm:text-base font-bold text-slate-900 group-hover:text-indigo-600 transition">${escapeHTML(custName)}</p>
+                    ${custMeta ? `<p class="text-xs text-slate-500">${escapeHTML(custMeta)}</p>` : ''}
+                  </button>
+                ` : ''}
+                ${(distReceivedBadge || linkedBadges) ? `
+                  <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                    ${distReceivedBadge}
+                    ${linkedBadges}
+                  </div>
+                ` : ''}
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-base sm:text-lg font-bold text-indigo-600">-${formatINR(tx.amount)}</p>
+                <div class="flex items-center justify-end gap-1 mt-1.5">
+                  <button type="button" onclick="openTransactionModal('debit', '${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button type="button" onclick="confirmDeleteTransaction('${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
             </div>
-          `;
-        }
 
-        let collectionMeta = '';
-        if (tx.receivedFromDistributor) {
-          const refText = tx.distCollectionRef ? ` • Ref: ${escapeHTML(tx.distCollectionRef)}` : '';
-          collectionMeta = `<p class="text-xs text-sky-700 font-medium mt-1.5">Money collected from ${escapeHTML(distLabel || 'Distributor')}${refText}</p>`;
-        }
-        bodyHtml = `<p class="text-xs sm:text-sm text-slate-700 mt-1">Payout paid via <span class="font-semibold">${escapeHTML(tx.paymentMode || 'Cash')}</span></p>${linkedSponsorshipsHtml}${collectionMeta}`;
+            ${tx.distCollectionRef ? `<p class="text-xs text-sky-800 bg-sky-50/70 px-3 py-1.5 rounded-lg border border-sky-100"><span class="font-semibold">Distributor Receipt Ref:</span> ${escapeHTML(tx.distCollectionRef)}</p>` : ''}
+            ${tx.remarks ? `<p class="text-xs text-slate-500"><span class="font-semibold text-slate-600">Remarks:</span> ${escapeHTML(tx.remarks)}</p>` : ''}
+          </div>
+        `;
       }
-
-      return `
-        <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs hover:border-slate-300 transition flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              ${showCustomerName ? `<button onclick="openCustomerDrawer('${tx.customerId}')" class="text-sm font-bold text-slate-900 hover:text-indigo-600 text-left truncate">${escapeHTML(custLabel)}</button>` : ''}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${isCredit ? 'bg-emerald-50 text-emerald-700' : 'bg-indigo-50 text-indigo-700'}">
-                ${isCredit ? `Sponsorship (${items.length})` : escapeHTML(tx.paymentMode || 'Payout')}
-              </span>
-              ${distPillHtml}
-              ${collectibleBadgeHtml}
-              ${settlementBadgeHtml}
-              <span class="text-xs text-slate-400">${formatDateIN(tx.date)}</span>
-            </div>
-            ${bodyHtml}
-            ${tx.remarks ? `<p class="text-xs text-slate-500 mt-1.5 italic">“${escapeHTML(tx.remarks)}”</p>` : ''}
-          </div>
-
-          <div class="flex items-center justify-between sm:flex-col sm:items-end gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
-            <p class="text-base font-bold ${isCredit ? 'text-emerald-600' : 'text-indigo-600'}">
-              ${isCredit ? '+' : '-'}${formatINR(tx.amount)}
-            </p>
-            <div class="flex items-center gap-1">
-              ${isCredit && creditSetStats && !creditSetStats.isSettled ? `<button onclick="openTransactionModal('debit', null, '${tx.customerId}', null, ['${tx.id}'])" class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition" title="Record Payout for this Sponsorship">Pay</button>` : ''}
-              <button onclick="openTransactionModal('${tx.type}', '${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-              </button>
-              <button onclick="confirmDeleteTransaction('${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
     }
 
     function renderLedger() {
       const list = getFilteredLedgerTransactions();
-      let earned = 0;
-      let paid = 0;
-      let distReceived = 0;
+      let sumEarned = 0;
+      let sumPaid = 0;
+      let sumDistReceived = 0;
+
       list.forEach(tx => {
         const amt = Number(tx.amount) || 0;
-        if (tx.type === 'credit') earned += amt;
+        if (tx.type === 'credit') sumEarned += amt;
         else if (tx.type === 'debit') {
-          paid += amt;
-          if (tx.receivedFromDistributor) distReceived += amt;
+          sumPaid += amt;
+          if (tx.receivedFromDistributor) sumDistReceived += amt;
         }
       });
 
       document.getElementById('ledger-count-label').textContent = `${list.length} transaction${list.length === 1 ? '' : 's'}`;
-      document.getElementById('ledger-sum-earned').textContent = formatINR(earned);
-      document.getElementById('ledger-sum-paid').textContent = formatINR(paid);
-      const distRecEl = document.getElementById('ledger-sum-dist-received');
-      if (distRecEl) distRecEl.textContent = formatINR(distReceived);
-      document.getElementById('ledger-sum-net').textContent = formatINR(earned - paid);
+      document.getElementById('ledger-sum-earned').textContent = formatINR(sumEarned);
+      document.getElementById('ledger-sum-paid').textContent = formatINR(sumPaid);
+      document.getElementById('ledger-sum-dist-received').textContent = formatINR(sumDistReceived);
+      document.getElementById('ledger-sum-net').textContent = formatINR(sumEarned - sumPaid);
 
       const container = document.getElementById('ledger-list-container');
       if (list.length === 0) {
         container.innerHTML = `
-          <div class="bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
-            <p class="text-sm font-semibold text-slate-700">No ledger entries found</p>
-            <p class="text-xs text-slate-400 mt-1">Adjust your filters or log a new sponsorship entry.</p>
+          <div class="bg-white rounded-2xl p-10 text-center border border-slate-200/80">
+            <p class="text-sm font-semibold text-slate-700">No ledger entries match your filters</p>
+            <p class="text-xs text-slate-400 mt-1">Log a sponsorship or payout, or reset your filter criteria.</p>
           </div>
         `;
-        return;
+      } else {
+        container.innerHTML = list.map(tx => renderTransactionCard(tx, true)).join('');
       }
-
-      container.innerHTML = list.map(tx => renderTransactionCard(tx, true)).join('');
     }
 
+    // -----------------------------------------------------------------------
+    // TAB 3: CUSTOMERS CRUD & RENDERING
+    // -----------------------------------------------------------------------
     function renderCustomers() {
-      const search = (document.getElementById('customer-search')?.value || '').trim().toLowerCase();
-      const sort = document.getElementById('customer-sort')?.value || 'pending_desc';
+      const q = (document.getElementById('customer-search')?.value || '').trim().toLowerCase();
+      const sortMode = document.getElementById('customer-sort')?.value || 'pending_desc';
 
-      let list = state.customers.filter(c => {
-        if (!search) return true;
-        const name = getCustomerFullName(c).toLowerCase();
-        const dept = (c.department || '').toLowerCase();
-        const org = (c.organization || '').toLowerCase();
-        const branch = (c.branch || '').toLowerCase();
-        const phone = (c.phone || '').toLowerCase();
-        const prefDist = getDistributorNameById(c.preferredDistributorId).toLowerCase();
-        const prods = (c.mappedProducts || []).map(p => p.productName.toLowerCase()).join(' ');
-        return name.includes(search) || dept.includes(search) || org.includes(search) || branch.includes(search) || phone.includes(search) || prefDist.includes(search) || prods.includes(search);
-      });
+      let list = state.customers.map(c => ({
+        cust: c,
+        stats: getCustomerStats(c.id)
+      }));
+
+      if (q) {
+        list = list.filter(({ cust }) => {
+          const fullName = getCustomerFullName(cust).toLowerCase();
+          const dept = (cust.department || '').toLowerCase();
+          const org = (cust.organization || '').toLowerCase();
+          const branch = (cust.branch || '').toLowerCase();
+          const phone = (cust.phone || '').toLowerCase();
+          const distName = cust.preferredDistributorId ? getDistributorNameById(cust.preferredDistributorId).toLowerCase() : '';
+          const prods = (cust.mappedProducts || []).map(p => (p.productName || '').toLowerCase()).join(' ');
+          return fullName.includes(q) || dept.includes(q) || org.includes(q) || branch.includes(q) || phone.includes(q) || distName.includes(q) || prods.includes(q);
+        });
+      }
 
       list.sort((a, b) => {
-        if (sort === 'name_asc') return getCustomerFullName(a).localeCompare(getCustomerFullName(b));
-        if (sort === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
-        return getCustomerStats(b.id).pending - getCustomerStats(a.id).pending;
+        if (sortMode === 'name_asc') return getCustomerFullName(a.cust).localeCompare(getCustomerFullName(b.cust));
+        if (sortMode === 'recent') return (b.cust.createdAt || '').localeCompare(a.cust.createdAt || '');
+        return b.stats.pending - a.stats.pending;
       });
 
       const grid = document.getElementById('customers-grid');
       if (list.length === 0) {
         grid.innerHTML = `
-          <div class="col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
+          <div class="col-span-full bg-white rounded-2xl p-10 text-center border border-slate-200/80">
             <p class="text-sm font-semibold text-slate-700">No customers found</p>
-            <p class="text-xs text-slate-400 mt-1">Add a Doctor or Partner to map products and track sponsorships.</p>
+            <p class="text-xs text-slate-400 mt-1">Click "Add Customer" to create a doctor or partner profile with mapped product rates.</p>
           </div>
         `;
         return;
       }
 
-      grid.innerHTML = list.map(c => {
-        const stats = getCustomerStats(c.id);
-        const mapped = c.mappedProducts || [];
-        const prefDistName = c.preferredDistributorId ? getDistributorNameById(c.preferredDistributorId) : '';
-        const metaParts = [c.department, getCustomerOrgBranchLabel(c), c.phone].filter(Boolean);
+      grid.innerHTML = list.map(({ cust, stats }) => {
+        const meta = [cust.department, getCustomerOrgBranchLabel(cust)].filter(Boolean).join(' • ');
+        const mapped = cust.mappedProducts || [];
+        const prefDist = cust.preferredDistributorId ? getDistributorNameById(cust.preferredDistributorId) : '';
+
+        const mappedBadges = mapped.slice(0, 3).map(m =>
+          `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700">${escapeHTML(m.productName)}: ${formatINR(m.rate)}/${m.unitType === 'Unit' ? 'Unit' : 'Bag'}</span>`
+        ).join('');
+        const extraBadge = mapped.length > 3
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600">+${mapped.length - 3} more</span>`
+          : '';
 
         return `
-          <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition flex flex-col justify-between gap-4">
-            <div>
+          <div onclick="openCustomerDrawer('${cust.id}')" class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm hover:border-indigo-300 transition cursor-pointer flex flex-col justify-between gap-4">
+            <div class="space-y-2.5">
               <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 cursor-pointer" onclick="openCustomerDrawer('${c.id}')">
-                  <h3 class="text-base font-bold text-slate-900 hover:text-indigo-600 truncate">${escapeHTML(getCustomerFullName(c))}</h3>
-                  <p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(metaParts.join(' • ') || 'No department/hospital/branch specified')}</p>
+                <div class="min-w-0">
+                  <h3 class="text-base font-bold text-slate-900 truncate">${escapeHTML(getCustomerFullName(cust))}</h3>
+                  ${meta ? `<p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(meta)}</p>` : ''}
+                  ${cust.phone ? `<p class="text-xs text-slate-400 mt-0.5">${escapeHTML(cust.phone)}</p>` : ''}
                 </div>
-                <button onclick="openCustomerModal('${c.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0" title="Edit Customer">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                </button>
+                <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+                  <button onclick="openCustomerModal('${cust.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit Customer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button onclick="confirmDeleteCustomer('${cust.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Customer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
               </div>
 
-              ${prefDistName ? `
-                <div class="mt-2">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200/60">
-                    Pref. Dist: ${escapeHTML(prefDistName)}
-                  </span>
-                </div>
+              ${prefDist && prefDist !== DIRECT_DISTRIBUTOR_LABEL ? `
+                <p class="text-[11px] font-medium text-sky-700 bg-sky-50/80 px-2.5 py-1 rounded-lg border border-sky-100 truncate">Preferred Dist: ${escapeHTML(prefDist)}</p>
               ` : ''}
 
-              <div class="mt-3 flex flex-wrap gap-1.5">
-                ${mapped.length > 0
-                  ? mapped.slice(0, 4).map(m => `
-                      <span class="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700">
-                        ${escapeHTML(m.productName)}: <strong class="ml-1 text-slate-900">${formatINR(m.rate)}</strong>/${m.unitType === 'Unit' ? 'Unit' : 'Bag'}
-                      </span>
-                    `).join('') + (mapped.length > 4 ? `<span class="text-[11px] text-slate-400 self-center">+${mapped.length - 4} more</span>` : '')
-                  : `<span class="text-xs text-slate-400 italic">No products mapped</span>`
-                }
+              <div class="flex flex-wrap gap-1.5">
+                ${mappedBadges || '<span class="text-xs text-slate-400 italic">No products mapped</span>'}
+                ${extraBadge}
               </div>
             </div>
 
-            <div class="pt-3 border-t border-slate-100 space-y-3">
-              <div class="grid grid-cols-3 gap-2 text-center bg-slate-50 rounded-xl p-2">
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Earned</p>
-                  <p class="text-xs font-bold text-slate-700 truncate">${formatINR(stats.earned)}</p>
+            <div class="pt-3 border-t border-slate-100 space-y-2.5">
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                  <span class="block text-[10px] font-semibold uppercase text-slate-400">Earned</span>
+                  <span class="text-xs font-bold text-emerald-600 truncate block">${formatINR(stats.earned)}</span>
                 </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Paid</p>
-                  <p class="text-xs font-bold text-indigo-600 truncate">${formatINR(stats.paid)}</p>
+                <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                  <span class="block text-[10px] font-semibold uppercase text-slate-400">Paid</span>
+                  <span class="text-xs font-bold text-indigo-600 truncate block">${formatINR(stats.paid)}</span>
                 </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Pending</p>
-                  <p class="text-xs font-bold ${stats.pending > 0 ? 'text-amber-600' : 'text-emerald-600'} truncate">${formatINR(stats.pending)}</p>
+                <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                  <span class="block text-[10px] font-semibold uppercase text-slate-400">Pending</span>
+                  <span class="text-xs font-bold ${stats.pending > 0 ? 'text-amber-600' : 'text-slate-700'} truncate block">${formatINR(stats.pending)}</span>
                 </div>
               </div>
 
-              <div class="grid grid-cols-3 gap-2">
-                <button onclick="openCustomerDrawer('${c.id}')" class="py-2 px-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Ledger</button>
-                <button onclick="openTransactionModal('credit', null, '${c.id}')" class="py-2 px-2 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">+ Units</button>
-                <button onclick="openTransactionModal('debit', null, '${c.id}')" class="py-2 px-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition">Pay</button>
+              <div class="grid grid-cols-2 gap-2" onclick="event.stopPropagation()">
+                <button onclick="openTransactionModal('credit', null, '${cust.id}')" class="py-2 px-3 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">+ Log Units</button>
+                <button onclick="openTransactionModal('debit', null, '${cust.id}')" class="py-2 px-3 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition">Record Payout</button>
               </div>
             </div>
           </div>
@@ -2767,150 +2612,23 @@
       }).join('');
     }
 
-    function renderDistributors() {
-      const search = (document.getElementById('distributor-search')?.value || '').trim().toLowerCase();
-      const list = state.distributors
-        .filter(d => {
-          if (!search) return true;
-          return (
-            (d.name || '').toLowerCase().includes(search) ||
-            (d.city || '').toLowerCase().includes(search) ||
-            (d.contactPerson || '').toLowerCase().includes(search) ||
-            (d.phone || '').toLowerCase().includes(search)
-          );
-        })
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-      const grid = document.getElementById('distributors-grid');
-      if (list.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
-            <p class="text-sm font-semibold text-slate-700">No distributors found</p>
-            <p class="text-xs text-slate-400 mt-1">Add stock-supplying distributors to select them when logging sponsorships.</p>
-          </div>
-        `;
-        return;
-      }
-
-      grid.innerHTML = list.map(d => {
-        const stats = getDistributorStats(d.id);
-        const subMeta = [d.city, d.contactPerson, d.phone].filter(Boolean).join(' • ');
-        return `
-          <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition flex flex-col justify-between gap-4">
-            <div>
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 cursor-pointer" onclick="openDistributorDrawer('${d.id}')">
-                  <h3 class="text-base font-bold text-slate-900 hover:text-indigo-600 truncate">${escapeHTML(d.name)}</h3>
-                  <p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(subMeta || 'No city/contact specified')}</p>
-                </div>
-                <button onclick="openDistributorModal('${d.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0" title="Edit Distributor">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                </button>
-              </div>
-              ${d.notes ? `<p class="text-xs text-slate-500 mt-2 line-clamp-2">${escapeHTML(d.notes)}</p>` : ''}
-            </div>
-
-            <div class="pt-3 border-t border-slate-100 space-y-3">
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-slate-50 rounded-xl p-2">
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Dispatches</p>
-                  <p class="text-xs font-bold text-slate-700">${stats.dispatches}</p>
-                </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Bags/Units</p>
-                  <p class="text-xs font-bold text-sky-600">${stats.totalQty}</p>
-                </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Sponsor Val</p>
-                  <p class="text-xs font-bold text-emerald-600 truncate">${formatINR(stats.sponsorValue)}</p>
-                </div>
-                <div>
-                  <p class="text-[10px] font-semibold uppercase text-slate-400">Money Rec&apos;d</p>
-                  <p class="text-xs font-bold text-indigo-600 truncate">${formatINR(stats.moneyReceived)}</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2">
-                <button onclick="openDistributorDrawer('${d.id}')" class="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">View Records</button>
-                <button onclick="openTransactionModal('credit', null, null, '${d.id}')" class="py-2 px-3 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">+ Log Stock</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderProducts() {
-      const search = (document.getElementById('product-search')?.value || '').trim().toLowerCase();
-      const list = state.products
-        .filter(p => !search || (p.name || '').toLowerCase().includes(search))
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-      const container = document.getElementById('products-list');
-      if (list.length === 0) {
-        container.innerHTML = `
-          <div class="col-span-full bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
-            <p class="text-sm font-semibold text-slate-700">No products in master list</p>
-            <p class="text-xs text-slate-400 mt-1">Add products here or map them directly when adding a customer.</p>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = list.map(p => {
-        const mappedCount = state.customers.filter(c =>
-          (c.mappedProducts || []).some(m => m.productName.toLowerCase() === p.name.toLowerCase())
-        ).length;
-        return `
-          <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <h4 class="text-sm font-bold text-slate-900 truncate">${escapeHTML(p.name)}</h4>
-              <p class="text-xs text-slate-500 mt-0.5">
-                Per ${escapeHTML(p.defaultUnit || 'Bag')}
-                ${Number(p.defaultRate) > 0 ? ` • Default <strong class="text-slate-700">${formatINR(p.defaultRate)}</strong>` : ''}
-                • ${mappedCount} customer${mappedCount === 1 ? '' : 's'}
-              </p>
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button onclick="openProductModal('${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-              </button>
-              <button onclick="confirmDeleteProduct('${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // -----------------------------------------------------------------------
-    // Customer CRUD & Product Mapping Builder
-    // -----------------------------------------------------------------------
-    function populatePreferredDistributorSelect(selectedId = '') {
-      const sel = document.getElementById('cust-preferred-distributor');
-      if (!sel) return;
-      const sorted = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      sel.innerHTML = `<option value="">-- None / Choose While Logging --</option>` +
-        sorted.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('');
-      if (selectedId && sorted.some(d => d.id === selectedId)) sel.value = selectedId;
-    }
-
-    function openCustomerModal(customerId = null) {
+    function openCustomerModal(editCustomerId = null) {
       document.getElementById('form-customer').reset();
       document.getElementById('cust-id').value = '';
+      document.getElementById('customer-product-rows').innerHTML = '';
 
+      // Populate product master datalist
       const datalist = document.getElementById('product-master-datalist');
-      datalist.innerHTML = state.products
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-        .map(p => `<option value="${escapeHTML(p.name)}"></option>`)
-        .join('');
+      datalist.innerHTML = state.products.map(p => `<option value="${escapeHTML(p.name)}"></option>`).join('');
 
-      const rowsContainer = document.getElementById('customer-product-rows');
-      rowsContainer.innerHTML = '';
+      // Populate preferred distributor dropdown
+      const prefSel = document.getElementById('cust-preferred-distributor');
+      const sortedDists = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      prefSel.innerHTML = `<option value="">-- None / Choose While Logging --</option>` +
+        sortedDists.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('');
 
-      if (customerId) {
-        const cust = state.customers.find(c => c.id === customerId);
+      if (editCustomerId) {
+        const cust = state.customers.find(c => c.id === editCustomerId);
         if (!cust) return;
         document.getElementById('modal-customer-title').textContent = 'Edit Customer';
         document.getElementById('cust-id').value = cust.id;
@@ -2920,17 +2638,17 @@
         document.getElementById('cust-org').value = cust.organization || '';
         document.getElementById('cust-branch').value = cust.branch || '';
         document.getElementById('cust-phone').value = cust.phone || '';
+        document.getElementById('cust-preferred-distributor').value = cust.preferredDistributorId || '';
         document.getElementById('cust-notes').value = cust.notes || '';
-        populatePreferredDistributorSelect(cust.preferredDistributorId || '');
 
-        if (Array.isArray(cust.mappedProducts) && cust.mappedProducts.length > 0) {
-          cust.mappedProducts.forEach(mp => addProductMappingRow(mp));
+        const mapped = cust.mappedProducts || [];
+        if (mapped.length > 0) {
+          mapped.forEach(m => addProductMappingRow(m));
         } else {
           addProductMappingRow();
         }
       } else {
         document.getElementById('modal-customer-title').textContent = 'Add Customer';
-        populatePreferredDistributorSelect('');
         addProductMappingRow();
       }
 
@@ -2940,22 +2658,22 @@
     function addProductMappingRow(initial = null) {
       const container = document.getElementById('customer-product-rows');
       const row = document.createElement('div');
-      row.className = 'mapping-row grid grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/80';
+      row.className = 'cust-map-row grid grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/80';
       row.innerHTML = `
         <div class="col-span-12 sm:col-span-5">
-          <input type="text" list="product-master-datalist" placeholder="Product Name *" value="${escapeHTML(initial?.productName || '')}" oninput="onMappingProductInput(this)" class="map-prod-name w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input type="text" list="product-master-datalist" placeholder="Product Name *" value="${escapeHTML(initial?.productName || '')}" oninput="onMappingProductInput(this)" class="map-prod-name w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="col-span-5 sm:col-span-3">
-          <select class="map-prod-unit w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <select class="map-prod-unit w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="Bag" ${initial?.unitType === 'Unit' ? '' : 'selected'}>Per Bag</option>
             <option value="Unit" ${initial?.unitType === 'Unit' ? 'selected' : ''}>Per Unit</option>
           </select>
         </div>
         <div class="col-span-5 sm:col-span-3">
-          <input type="number" step="0.01" min="0" placeholder="Rate ₹ *" value="${initial?.rate ?? ''}" class="map-prod-rate w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input type="number" step="0.01" min="0" placeholder="Amount ₹" value="${initial?.rate ?? ''}" class="map-prod-rate w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="col-span-2 sm:col-span-1 flex justify-end">
-          <button type="button" onclick="removeProductMappingRow(this)" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Remove">
+          <button type="button" onclick="removeProductMappingRow(this)" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Remove">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -2966,52 +2684,50 @@
     function onMappingProductInput(inputEl) {
       const val = inputEl.value.trim().toLowerCase();
       if (!val) return;
-      const match = state.products.find(p => (p.name || '').toLowerCase() === val);
-      if (match) {
-        const row = inputEl.closest('.mapping-row');
+      const master = state.products.find(p => (p.name || '').trim().toLowerCase() === val);
+      if (master) {
+        const row = inputEl.closest('.cust-map-row');
         const unitSel = row.querySelector('.map-prod-unit');
         const rateInp = row.querySelector('.map-prod-rate');
-        if (match.defaultUnit) unitSel.value = match.defaultUnit;
-        if (!rateInp.value && Number(match.defaultRate) > 0) rateInp.value = match.defaultRate;
+        if (master.defaultUnit) unitSel.value = master.defaultUnit;
+        if (master.defaultRate !== undefined && rateInp.value === '') {
+          rateInp.value = master.defaultRate;
+        }
       }
     }
 
     function removeProductMappingRow(btn) {
       const container = document.getElementById('customer-product-rows');
       if (container.children.length <= 1) {
-        const row = btn.closest('.mapping-row');
+        const row = btn.closest('.cust-map-row');
         row.querySelector('.map-prod-name').value = '';
         row.querySelector('.map-prod-rate').value = '';
         return;
       }
-      btn.closest('.mapping-row').remove();
+      btn.closest('.cust-map-row').remove();
     }
 
     async function handleSaveCustomer(event) {
       event.preventDefault();
       const id = document.getElementById('cust-id').value;
-      const title = document.getElementById('cust-title').value;
+      const title = document.getElementById('cust-title').value || 'Dr.';
       const name = document.getElementById('cust-name').value.trim();
       const department = document.getElementById('cust-department').value.trim();
       const organization = document.getElementById('cust-org').value.trim();
       const branch = document.getElementById('cust-branch').value.trim();
       const phone = document.getElementById('cust-phone').value.trim();
-      const preferredDistributorId = document.getElementById('cust-preferred-distributor').value;
+      const preferredDistributorId = document.getElementById('cust-preferred-distributor').value || '';
       const notes = document.getElementById('cust-notes').value.trim();
 
-      if (!name) return showToast('Please enter the customer name.', 'error');
+      if (!name) return showToast('Please enter customer name.', 'error');
 
       const mappedProducts = [];
-      document.querySelectorAll('#customer-product-rows .mapping-row').forEach(row => {
+      document.querySelectorAll('#customer-product-rows .cust-map-row').forEach(row => {
         const pName = row.querySelector('.map-prod-name').value.trim();
-        const uType = row.querySelector('.map-prod-unit').value;
-        const rateVal = parseFloat(row.querySelector('.map-prod-rate').value);
+        const unitType = row.querySelector('.map-prod-unit').value || 'Bag';
+        const rate = parseFloat(row.querySelector('.map-prod-rate').value) || 0;
         if (pName) {
-          mappedProducts.push({
-            productName: pName,
-            unitType: uType,
-            rate: isNaN(rateVal) ? 0 : rateVal
-          });
+          mappedProducts.push({ productName: pName, unitType, rate });
         }
       });
 
@@ -3019,7 +2735,7 @@
       const targetId = id || generateId('cust');
       const existing = id ? state.customers.find(c => c.id === id) : null;
 
-      const payload = {
+      await saveCloudRecord('customers', targetId, {
         title,
         name,
         department,
@@ -3031,13 +2747,11 @@
         mappedProducts,
         createdAt: existing?.createdAt || nowISO,
         updatedAt: nowISO
-      };
+      });
 
-      await saveCloudRecord('customers', targetId, payload);
-
-      // Auto-register any new products in Product Master
+      // Auto-register any new product names in Product Master if not already present
       for (const mp of mappedProducts) {
-        const existsInMaster = state.products.some(p => p.name.toLowerCase() === mp.productName.toLowerCase());
+        const existsInMaster = state.products.some(p => (p.name || '').trim().toLowerCase() === mp.productName.toLowerCase());
         if (!existsInMaster) {
           const newProdId = generateId('prod');
           await saveCloudRecord('products', newProdId, {
@@ -3056,28 +2770,171 @@
 
     function confirmDeleteCustomer(customerId) {
       const cust = state.customers.find(c => c.id === customerId);
-      if (!cust) return;
+      const label = cust ? getCustomerFullName(cust) : 'this customer';
       openConfirmModal(
-        `Delete ${getCustomerFullName(cust)}?`,
-        'This removes the customer profile from the database. Existing ledger entries will remain preserved.',
+        'Delete Customer?',
+        `This permanently removes ${label} and all of their associated ledger transactions.`,
         'Delete Customer',
         async () => {
+          const custTxs = state.transactions.filter(t => t.customerId === customerId);
+          for (const tx of custTxs) {
+            await deleteCloudRecord('transactions', tx.id);
+          }
           await deleteCloudRecord('customers', customerId);
-          closeCustomerDrawer();
+          if (state.activeCustomerId === customerId) closeCustomerDrawer();
           showToast('Customer deleted.');
         }
       );
     }
 
     // -----------------------------------------------------------------------
-    // Distributor CRUD & Inline Quick Add
+    // TAB 4: DISTRIBUTORS CRUD, QUICK ADD & RENDERING
     // -----------------------------------------------------------------------
-    function openDistributorModal(distributorId = null) {
+    function populateTxDistributorSelect(selectedId = '') {
+      const sel = document.getElementById('tx-distributor');
+      if (!sel) return;
+      const sorted = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      sel.innerHTML = `<option value="">-- Select Stock Supplied Distributor --</option><option value="${DIRECT_DISTRIBUTOR_ID}">${DIRECT_DISTRIBUTOR_LABEL}</option>` +
+        sorted.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('');
+      if (selectedId && [...sel.options].some(o => o.value === selectedId)) {
+        sel.value = selectedId;
+      }
+    }
+
+    function populatePayoutDistributorSelect(selectedId = '') {
+      const sel = document.getElementById('tx-payout-distributor');
+      if (!sel) return;
+      const sorted = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      sel.innerHTML = `<option value="">-- Select Distributor --</option>` +
+        sorted.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('');
+      if (selectedId && [...sel.options].some(o => o.value === selectedId)) {
+        sel.value = selectedId;
+      }
+    }
+
+    function toggleQuickAddDistributor(forceState = undefined, context = 'credit') {
+      const boxId = context === 'payout' ? 'quick-add-payout-dist-box' : 'quick-add-dist-box';
+      const box = document.getElementById(boxId);
+      if (!box) return;
+      const shouldShow = typeof forceState === 'boolean' ? forceState : box.classList.contains('hidden');
+      box.classList.toggle('hidden', !shouldShow);
+      if (shouldShow) {
+        const nameInput = document.getElementById(context === 'payout' ? 'quick-payout-dist-name' : 'quick-dist-name');
+        if (nameInput) nameInput.focus();
+      }
+    }
+
+    async function saveQuickDistributor(context = 'credit') {
+      const nameId = context === 'payout' ? 'quick-payout-dist-name' : 'quick-dist-name';
+      const cityId = context === 'payout' ? 'quick-payout-dist-city' : 'quick-dist-city';
+      const nameEl = document.getElementById(nameId);
+      const cityEl = document.getElementById(cityId);
+      const name = (nameEl?.value || '').trim();
+      const city = (cityEl?.value || '').trim();
+
+      if (!name) return showToast('Enter distributor name.', 'error');
+
+      const nowISO = new Date().toISOString();
+      const newId = generateId('dist');
+      await saveCloudRecord('distributors', newId, {
+        name,
+        city,
+        contactPerson: '',
+        phone: '',
+        notes: '',
+        createdAt: nowISO,
+        updatedAt: nowISO
+      });
+
+      if (nameEl) nameEl.value = '';
+      if (cityEl) cityEl.value = '';
+      toggleQuickAddDistributor(false, context);
+
+      populateTxDistributorSelect(context === 'credit' ? newId : document.getElementById('tx-distributor').value);
+      populatePayoutDistributorSelect(context === 'payout' ? newId : document.getElementById('tx-payout-distributor').value);
+      showToast(`Distributor "${name}" added & selected.`);
+    }
+
+    function togglePayoutDistributorFields() {
+      const checked = Boolean(document.getElementById('tx-payout-from-dist')?.checked);
+      const fields = document.getElementById('tx-payout-dist-fields');
+      if (fields) fields.classList.toggle('hidden', !checked);
+    }
+
+    function renderDistributors() {
+      const q = (document.getElementById('distributor-search')?.value || '').trim().toLowerCase();
+      let list = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+      if (q) {
+        list = list.filter(d =>
+          (d.name || '').toLowerCase().includes(q) ||
+          (d.city || '').toLowerCase().includes(q) ||
+          (d.contactPerson || '').toLowerCase().includes(q) ||
+          (d.phone || '').toLowerCase().includes(q)
+        );
+      }
+
+      const grid = document.getElementById('distributors-grid');
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white rounded-2xl p-10 text-center border border-slate-200/80">
+            <p class="text-sm font-semibold text-slate-700">No distributors found</p>
+            <p class="text-xs text-slate-400 mt-1">Click "Add Distributor" to maintain stock-supplying distributors.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = list.map(dist => {
+        const stats = getDistributorStats(dist.id);
+        const meta = [dist.city, dist.contactPerson, dist.phone].filter(Boolean).join(' • ');
+        return `
+          <div onclick="openDistributorDrawer('${dist.id}')" class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm hover:border-sky-300 transition cursor-pointer flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="text-base font-bold text-slate-900 truncate">${escapeHTML(dist.name)}</h3>
+                ${meta ? `<p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(meta)}</p>` : ''}
+                ${dist.notes ? `<p class="text-xs text-slate-400 truncate mt-1">${escapeHTML(dist.notes)}</p>` : ''}
+              </div>
+              <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+                <button onclick="openDistributorModal('${dist.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit Distributor">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+                <button onclick="confirmDeleteDistributor('${dist.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Distributor">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 grid grid-cols-4 gap-1.5 text-center">
+              <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                <span class="block text-[10px] font-semibold uppercase text-slate-400">Dispatches</span>
+                <span class="text-xs font-bold text-slate-800">${stats.dispatches}</span>
+              </div>
+              <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                <span class="block text-[10px] font-semibold uppercase text-slate-400">Qty</span>
+                <span class="text-xs font-bold text-sky-600">${stats.totalQty}</span>
+              </div>
+              <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                <span class="block text-[10px] font-semibold uppercase text-slate-400">Sponsor</span>
+                <span class="text-xs font-bold text-emerald-600 truncate block">${formatINR(stats.sponsorValue)}</span>
+              </div>
+              <div class="bg-slate-50 rounded-xl py-1.5 px-1">
+                <span class="block text-[10px] font-semibold uppercase text-slate-400">Rec&apos;d</span>
+                <span class="text-xs font-bold text-indigo-600 truncate block">${formatINR(stats.moneyReceived)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openDistributorModal(editDistId = null) {
       document.getElementById('form-distributor').reset();
       document.getElementById('dist-id').value = '';
 
-      if (distributorId) {
-        const dist = state.distributors.find(d => d.id === distributorId);
+      if (editDistId) {
+        const dist = state.distributors.find(d => d.id === editDistId);
         if (!dist) return;
         document.getElementById('modal-distributor-title').textContent = 'Edit Distributor';
         document.getElementById('dist-id').value = dist.id;
@@ -3102,7 +2959,7 @@
       const phone = document.getElementById('dist-phone').value.trim();
       const notes = document.getElementById('dist-notes').value.trim();
 
-      if (!name) return showToast('Please enter distributor name.', 'error');
+      if (!name) return showToast('Distributor name is required.', 'error');
 
       const nowISO = new Date().toISOString();
       const targetId = id || generateId('dist');
@@ -3124,80 +2981,82 @@
 
     function confirmDeleteDistributor(distributorId) {
       const dist = state.distributors.find(d => d.id === distributorId);
-      if (!dist) return;
+      const label = dist ? dist.name : 'this distributor';
       openConfirmModal(
-        `Delete ${dist.name}?`,
-        'This removes the distributor from the database. Past ledger records will keep their distributor name snapshot.',
+        'Delete Distributor?',
+        `Remove ${label} from your distributors list? Historical ledger entries will preserve the distributor name snapshot.`,
         'Delete Distributor',
         async () => {
           await deleteCloudRecord('distributors', distributorId);
-          closeDistributorDrawer();
+          if (state.activeDistributorId === distributorId) closeDistributorDrawer();
           showToast('Distributor deleted.');
         }
       );
     }
 
-    function toggleQuickAddDistributor(forceState, context = 'credit') {
-      const boxId = context === 'payout' ? 'quick-add-payout-dist-box' : 'quick-add-dist-box';
-      const box = document.getElementById(boxId);
-      if (!box) return;
-      const shouldShow = typeof forceState === 'boolean' ? forceState : box.classList.contains('hidden');
-      box.classList.toggle('hidden', !shouldShow);
-      if (shouldShow) {
-        const nameInput = document.getElementById(context === 'payout' ? 'quick-payout-dist-name' : 'quick-dist-name');
-        if (nameInput) nameInput.focus();
+    // -----------------------------------------------------------------------
+    // TAB 5: PRODUCT MASTER CRUD & RENDERING
+    // -----------------------------------------------------------------------
+    function renderProducts() {
+      const q = (document.getElementById('product-search')?.value || '').trim().toLowerCase();
+      let list = [...state.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+      if (q) {
+        list = list.filter(p => (p.name || '').toLowerCase().includes(q));
       }
+
+      const container = document.getElementById('products-list');
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full bg-white rounded-2xl p-10 text-center border border-slate-200/80">
+            <p class="text-sm font-semibold text-slate-700">No products in Product Master</p>
+            <p class="text-xs text-slate-400 mt-1">Click "Add Product" to define reusable products with default ₹ sponsorship rates.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(prod => {
+        const mappedCount = state.customers.filter(c =>
+          (c.mappedProducts || []).some(m => (m.productName || '').toLowerCase() === (prod.name || '').toLowerCase())
+        ).length;
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="text-sm sm:text-base font-bold text-slate-900 truncate">${escapeHTML(prod.name)}</h3>
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700">
+                  ${formatINR(prod.defaultRate || 0)} / ${prod.defaultUnit === 'Unit' ? 'Unit' : 'Bag'}
+                </span>
+                <span class="text-xs text-slate-400">Mapped to ${mappedCount} customer${mappedCount === 1 ? '' : 's'}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="openProductModal('${prod.id}')" class="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Edit Product">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              </button>
+              <button onclick="confirmDeleteProduct('${prod.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Product">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
-    async function saveQuickDistributor(context = 'credit') {
-      const nameId = context === 'payout' ? 'quick-payout-dist-name' : 'quick-dist-name';
-      const cityId = context === 'payout' ? 'quick-payout-dist-city' : 'quick-dist-city';
-      const name = document.getElementById(nameId).value.trim();
-      const city = document.getElementById(cityId).value.trim();
-
-      if (!name) return showToast('Enter distributor name first.', 'error');
-
-      const nowISO = new Date().toISOString();
-      const newId = generateId('dist');
-      await saveCloudRecord('distributors', newId, {
-        name,
-        city,
-        contactPerson: '',
-        phone: '',
-        notes: '',
-        createdAt: nowISO,
-        updatedAt: nowISO
-      });
-
-      document.getElementById(nameId).value = '';
-      document.getElementById(cityId).value = '';
-      toggleQuickAddDistributor(false, context);
-
-      populateTxDistributorSelect(newId);
-      populatePayoutDistributorSelect(newId);
-      if (context === 'payout') {
-        document.getElementById('tx-payout-distributor').value = newId;
-      } else {
-        document.getElementById('tx-distributor').value = newId;
-      }
-      showToast(`Distributor "${name}" added & selected.`);
-    }
-
-    // -----------------------------------------------------------------------
-    // Product Master CRUD
-    // -----------------------------------------------------------------------
-    function openProductModal(productId = null) {
+    function openProductModal(editProductId = null) {
       document.getElementById('form-product').reset();
       document.getElementById('prod-id').value = '';
 
-      if (productId) {
-        const prod = state.products.find(p => p.id === productId);
+      if (editProductId) {
+        const prod = state.products.find(p => p.id === editProductId);
         if (!prod) return;
         document.getElementById('modal-product-title').textContent = 'Edit Product';
         document.getElementById('prod-id').value = prod.id;
         document.getElementById('prod-name').value = prod.name || '';
         document.getElementById('prod-unit').value = prod.defaultUnit || 'Bag';
-        document.getElementById('prod-rate').value = Number(prod.defaultRate) > 0 ? prod.defaultRate : '';
+        document.getElementById('prod-rate').value = prod.defaultRate ?? '';
       } else {
         document.getElementById('modal-product-title').textContent = 'Add Product';
       }
@@ -3209,11 +3068,10 @@
       event.preventDefault();
       const id = document.getElementById('prod-id').value;
       const name = document.getElementById('prod-name').value.trim();
-      const defaultUnit = document.getElementById('prod-unit').value;
-      const rateVal = parseFloat(document.getElementById('prod-rate').value);
-      const defaultRate = isNaN(rateVal) ? 0 : rateVal;
+      const defaultUnit = document.getElementById('prod-unit').value || 'Bag';
+      const defaultRate = parseFloat(document.getElementById('prod-rate').value) || 0;
 
-      if (!name) return showToast('Please enter product name.', 'error');
+      if (!name) return showToast('Product name is required.', 'error');
 
       const nowISO = new Date().toISOString();
       const targetId = id || generateId('prod');
@@ -3228,15 +3086,15 @@
       });
 
       closeModal('modal-product');
-      showToast(id ? 'Product updated.' : 'Product saved.');
+      showToast(id ? 'Product updated.' : 'Product added.');
     }
 
     function confirmDeleteProduct(productId) {
       const prod = state.products.find(p => p.id === productId);
-      if (!prod) return;
+      const label = prod ? prod.name : 'this product';
       openConfirmModal(
-        `Delete ${prod.name}?`,
-        'This deletes the product from Product Master. Existing customer mappings and ledger entries remain unaffected.',
+        'Delete Product?',
+        `Remove "${label}" from Product Master? Existing customer mappings and historical transactions will remain intact.`,
         'Delete Product',
         async () => {
           await deleteCloudRecord('products', productId);
@@ -3246,46 +3104,208 @@
     }
 
     // -----------------------------------------------------------------------
-    // Unified Transaction Modal (Multi-Product Sponsorship & Payouts)
+    // CLOUD & BACKUP MODAL (JSON EXPORT / IMPORT / CLEAR)
     // -----------------------------------------------------------------------
-    function populateTxDistributorSelect(selectedId = '') {
-      const sel = document.getElementById('tx-distributor');
-      if (!sel) return;
-      const sorted = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      sel.innerHTML = `<option value="">-- Select Stock Supplied Distributor --</option>` +
-        sorted.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('') +
-        `<option value="${DIRECT_DISTRIBUTOR_ID}">${DIRECT_DISTRIBUTOR_LABEL}</option>`;
-      if (selectedId && [...sel.options].some(o => o.value === selectedId)) {
-        sel.value = selectedId;
-      }
+    function renderBackupModal() {
+      const wsEl = document.getElementById('cloud-workspace-id');
+      const uidEl = document.getElementById('cloud-user-id');
+      if (wsEl) wsEl.textContent = appId;
+      if (uidEl) uidEl.textContent = currentUser?.uid || 'Local / Not Authenticated';
+
+      document.getElementById('backup-count-customers').textContent = state.customers.length;
+      document.getElementById('backup-count-distributors').textContent = state.distributors.length;
+      document.getElementById('backup-count-products').textContent = state.products.length;
+      document.getElementById('backup-count-transactions').textContent = state.transactions.length;
+
+      const toggleEl = document.getElementById('toggle-auto-download');
+      if (toggleEl) toggleEl.checked = Boolean(state.settings.autoDownloadDaily);
+      renderCompanyBranding();
     }
 
-    function populatePayoutDistributorSelect(selectedId = '') {
-      const sel = document.getElementById('tx-payout-distributor');
-      if (!sel) return;
-      const sorted = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      sel.innerHTML = `<option value="">-- Select Distributor --</option>` +
-        sorted.map(d => `<option value="${d.id}">${escapeHTML(d.name)}${d.city ? ' (' + escapeHTML(d.city) + ')' : ''}</option>`).join('');
-      if (selectedId && [...sel.options].some(o => o.value === selectedId)) {
-        sel.value = selectedId;
-      }
+    function openBackupModal() {
+      renderBackupModal();
+      document.getElementById('modal-backup').classList.remove('hidden');
     }
 
-    function togglePayoutDistributorFields() {
-      const checked = document.getElementById('tx-payout-from-dist')?.checked;
-      const box = document.getElementById('tx-payout-dist-fields');
-      if (!box) return;
-      box.classList.toggle('hidden', !checked);
-      if (checked) {
-        const custId = document.getElementById('tx-customer')?.value;
-        const cust = state.customers.find(c => c.id === custId);
-        const distSel = document.getElementById('tx-payout-distributor');
-        if (distSel && !distSel.value && cust?.preferredDistributorId) {
-          distSel.value = cust.preferredDistributorId;
+    function toggleAutoDownloadSetting(enabled) {
+      state.settings.autoDownloadDaily = Boolean(enabled);
+      saveSettings();
+      showToast(enabled ? 'Daily auto-download JSON enabled.' : 'Daily auto-download JSON disabled.', 'info');
+    }
+
+    function buildFullBackupPayload() {
+      return {
+        exportedAt: new Date().toISOString(),
+        appId,
+        companyProfile: state.companyProfile,
+        customers: state.customers,
+        distributors: state.distributors,
+        products: state.products,
+        transactions: state.transactions
+      };
+    }
+
+    function downloadJSONBackupFile(filename) {
+      const dataStr = JSON.stringify(buildFullBackupPayload(), null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function maybeAutoDownloadDailyJSON() {
+      if (!state.settings.autoDownloadDaily) return;
+      const today = getTodayISO();
+      if (state.settings.lastAutoDownloadedDate === today) return;
+      state.settings.lastAutoDownloadedDate = today;
+      saveSettings();
+      downloadJSONBackupFile(`sponsorship_ledger_backup_${today}.json`);
+    }
+
+    function triggerManualBackupDownload() {
+      downloadJSONBackupFile(`sponsorship_ledger_backup_${getTodayISO()}.json`);
+      showToast('JSON backup downloaded.');
+    }
+
+    function handleRestoreFileSelect(event) {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed || typeof parsed !== 'object') {
+            throw new Error('Invalid JSON structure');
+          }
+          await importRecordsBatch(parsed);
+        } catch (err) {
+          console.error('JSON restore error:', err);
+          showToast('Invalid JSON backup file.', 'error');
         }
+      };
+      reader.readAsText(file);
+    }
+
+    async function importRecordsBatch(data) {
+      const customers = Array.isArray(data.customers) ? data.customers : [];
+      const distributors = Array.isArray(data.distributors) ? data.distributors : [];
+      const products = Array.isArray(data.products) ? data.products : [];
+      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+
+      if (data.companyProfile && typeof data.companyProfile === 'object') {
+        state.companyProfile = {
+          name: (data.companyProfile.name || '').trim() || state.companyProfile.name,
+          tagline: (data.companyProfile.tagline || '').trim() || state.companyProfile.tagline,
+          logoData: data.companyProfile.logoData || state.companyProfile.logoData
+        };
+        saveCompanyProfileLocal();
+        renderCompanyBranding();
+      }
+
+      if (!db || !currentUser) {
+        const mergeById = (existing, incoming) => {
+          const map = new Map(existing.map(x => [x.id, x]));
+          incoming.forEach(item => {
+            if (item && item.id) map.set(item.id, item);
+          });
+          return [...map.values()];
+        };
+        state.customers = mergeById(state.customers, customers);
+        state.distributors = mergeById(state.distributors, distributors);
+        state.products = mergeById(state.products, products);
+        state.transactions = mergeById(state.transactions, transactions);
+        onCloudSnapshotUpdated();
+        showToast(`Imported ${customers.length} customers, ${distributors.length} distributors, ${products.length} products, ${transactions.length} transactions.`);
+        return;
+      }
+
+      updateCloudStatusUI('syncing');
+      try {
+        const ops = [];
+        customers.forEach(c => { if (c?.id) ops.push({ col: 'customers', id: c.id, data: c }); });
+        distributors.forEach(d => { if (d?.id) ops.push({ col: 'distributors', id: d.id, data: d }); });
+        products.forEach(p => { if (p?.id) ops.push({ col: 'products', id: p.id, data: p }); });
+        transactions.forEach(t => { if (t?.id) ops.push({ col: 'transactions', id: t.id, data: t }); });
+
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < ops.length; i += CHUNK_SIZE) {
+          const batch = writeBatch(db);
+          const chunk = ops.slice(i, i + CHUNK_SIZE);
+          chunk.forEach(op => {
+            batch.set(getPublicDocRef(op.col, op.id), op.data);
+          });
+          await batch.commit();
+        }
+
+        if (data.companyProfile && typeof data.companyProfile === 'object') {
+          await setDoc(getPublicDocRef('settings', 'company_profile'), {
+            ...state.companyProfile,
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        updateCloudStatusUI('live');
+        showToast(`Imported ${ops.length} records to Cloud.`);
+      } catch (err) {
+        console.error('Batch import error:', err);
+        updateCloudStatusUI('live');
+        showToast('Error importing JSON to cloud.', 'error');
       }
     }
 
+    function confirmClearAllData() {
+      openConfirmModal(
+        'Clear All Cloud Data?',
+        'This will permanently delete ALL customers, distributors, products, and ledger transactions. Export a JSON backup first if needed.',
+        'Yes, Delete Everything',
+        async () => {
+          if (!db || !currentUser) {
+            state.customers = [];
+            state.distributors = [];
+            state.products = [];
+            state.transactions = [];
+            onCloudSnapshotUpdated();
+            closeModal('modal-backup');
+            showToast('All local data cleared.');
+            return;
+          }
+
+          updateCloudStatusUI('syncing');
+          try {
+            const refs = [
+              ...state.customers.map(c => getPublicDocRef('customers', c.id)),
+              ...state.distributors.map(d => getPublicDocRef('distributors', d.id)),
+              ...state.products.map(p => getPublicDocRef('products', p.id)),
+              ...state.transactions.map(t => getPublicDocRef('transactions', t.id))
+            ];
+            const CHUNK_SIZE = 400;
+            for (let i = 0; i < refs.length; i += CHUNK_SIZE) {
+              const batch = writeBatch(db);
+              refs.slice(i, i + CHUNK_SIZE).forEach(ref => batch.delete(ref));
+              await batch.commit();
+            }
+            updateCloudStatusUI('live');
+            closeModal('modal-backup');
+            showToast('All cloud data cleared.');
+          } catch (err) {
+            console.error('Clear cloud data error:', err);
+            updateCloudStatusUI('live');
+            showToast('Failed to clear cloud data.', 'error');
+          }
+        }
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // PAYOUT MULTI-SPONSORSHIP CHECKLIST & TRANSACTION MODAL
+    // -----------------------------------------------------------------------
     function getSelectedPayoutSponsorshipIds() {
       return [...document.querySelectorAll('#tx-payout-sponsorship-list input.payout-sponsorship-cb:checked')].map(cb => cb.value);
     }
@@ -3548,7 +3568,6 @@
       const custId = document.getElementById('tx-customer').value;
       const cust = state.customers.find(c => c.id === custId);
 
-      // Auto-select preferred distributor if available
       if (cust?.preferredDistributorId) {
         const distSel = document.getElementById('tx-distributor');
         if (distSel && [...distSel.options].some(o => o.value === cust.preferredDistributorId)) {
@@ -3560,7 +3579,6 @@
         }
       }
 
-      // Refresh product rows for Credit tab
       const rowsContainer = document.getElementById('tx-product-rows');
       rowsContainer.innerHTML = '';
       if (cust && Array.isArray(cust.mappedProducts) && cust.mappedProducts.length > 0) {
@@ -3577,7 +3595,6 @@
       }
       recalculateTxCreditTotals();
 
-      // Update Payout tab balance & sponsorship checklist
       state.payoutAmountManuallyEdited = false;
       updatePayoutBalanceBanner(custId);
       const initialSelected = Array.isArray(presetLinkedIds) ? presetLinkedIds : [];
