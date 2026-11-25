@@ -849,7 +849,7 @@
       <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <div>
           <h3 class="text-lg font-extrabold text-slate-900">Cloud Sync &amp; Backups</h3>
-          <p class="text-xs text-slate-500">Firebase real-time database &amp; offline JSON backups</p>
+          <p class="text-xs text-slate-500">Firebase cloud database snapshots &amp; JSON file backup</p>
         </div>
         <button type="button" onclick="closeModal('modal-backup')" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -857,14 +857,15 @@
       </div>
 
       <div class="flex-1 overflow-y-auto custom-scroll p-5 space-y-4">
+        <!-- Connection Status Card -->
         <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
           <div class="flex items-center justify-between">
             <span class="font-semibold text-slate-600">Connection Status:</span>
             <span id="backup-cloud-status" class="font-bold text-indigo-700">Initializing...</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="font-semibold text-slate-600">Workspace ID:</span>
-            <span id="backup-workspace-id" class="font-mono text-[11px] text-slate-800">sponsorship-ledger</span>
+            <span class="font-semibold text-slate-600">Firebase Project:</span>
+            <span id="backup-project-id" class="font-mono text-[11px] text-slate-800">sponsorship-ledger</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="font-semibold text-slate-600">Live Records:</span>
@@ -873,27 +874,53 @@
           <p id="backup-last-time" class="text-[11px] text-slate-500 pt-1">Syncs automatically across devices when online.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button type="button" onclick="triggerManualBackupDownload()" class="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition">
+        <!-- Diagnostic / Fix Box (Shown automatically if Firebase Auth / Domain / Rules need attention) -->
+        <div id="backup-diagnostic-box" class="hidden p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-2">
+          <div class="flex items-start justify-between gap-2">
+            <p id="backup-diagnostic-title" class="font-extrabold text-amber-900">Cloud Action Needed</p>
+            <button type="button" onclick="retryFirebaseConnection()" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold shrink-0">Retry Connect</button>
+          </div>
+          <p id="backup-diagnostic-msg" class="text-amber-800 leading-relaxed"></p>
+          <div id="backup-diagnostic-copy-row" class="hidden flex items-center justify-between gap-2 p-2 rounded-xl bg-white border border-amber-200">
+            <code id="backup-diagnostic-copy-text" class="text-[11px] font-mono text-slate-800 truncate"></code>
+            <button type="button" onclick="copyDiagnosticText()" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-semibold shrink-0">Copy</button>
+          </div>
+        </div>
+
+        <!-- Primary Cloud Backup Button -->
+        <button type="button" id="btn-cloud-backup-now" onclick="createCloudBackupSnapshot(false)" class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 21"/><polyline points="9 16 12 13 15 16"/></svg>
+          <span>Backup to Cloud Now (Sync &amp; Save Snapshot)</span>
+        </button>
+
+        <!-- Cloud Backup Snapshots History -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Saved Cloud Backup Snapshots</h4>
+            <span id="cloud-snapshots-count" class="text-[11px] font-semibold text-slate-500">0 snapshots</span>
+          </div>
+          <div id="cloud-snapshots-list" class="space-y-2 max-h-44 overflow-y-auto custom-scroll pr-0.5">
+            <p class="text-xs text-slate-500 py-2">No cloud backup snapshots yet. Tap "Backup to Cloud Now" above.</p>
+          </div>
+        </div>
+
+        <!-- Offline File Export / Import -->
+        <div class="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button type="button" onclick="triggerManualBackupDownload(false)" class="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Export JSON Backup</span>
+            <span>Download JSON File</span>
           </button>
-          <button type="button" onclick="document.getElementById('restore-file-input').click()" class="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-sm font-semibold shadow-sm transition">
+          <button type="button" onclick="document.getElementById('restore-file-input').click()" class="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs sm:text-sm font-semibold shadow-sm transition">
             <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>Import JSON to Cloud</span>
+            <span>Restore JSON to Cloud</span>
           </button>
           <input id="restore-file-input" type="file" accept=".json,application/json" onchange="handleRestoreFileSelect(event)" class="hidden" />
         </div>
 
-        <button type="button" onclick="syncLocalCacheToCloud()" class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 text-xs sm:text-sm font-semibold transition">
-          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-          <span>Sync Local Records to Cloud</span>
-        </button>
-
         <label class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
           <div>
             <p class="text-xs font-bold text-slate-800">Daily Auto-Download JSON Backup</p>
-            <p class="text-[11px] text-slate-500">Automatically downloads a dated backup file once per day</p>
+            <p class="text-[11px] text-slate-500">Automatically downloads a dated JSON file once per day</p>
           </div>
           <input id="toggle-auto-download" type="checkbox" onchange="toggleAutoDownloadSetting(this.checked)" class="w-4 h-4 rounded text-indigo-600" />
         </label>
@@ -952,7 +979,7 @@
 
   <!-- ==================== APPLICATION SCRIPT (FIREBASE + APP LOGIC) ==================== -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -981,6 +1008,7 @@
     let auth = null;
     let currentUser = null;
     let unsubscribers = [];
+    let cloudDiagnostic = null;
 
     let state = {
       activeTab: 'dashboard',
@@ -989,6 +1017,7 @@
       distributors: [],
       products: [],
       transactions: [],
+      cloudBackups: [],
       companyProfile: {
         name: 'SponsorLedger',
         tagline: 'Cloud ₹ Ledger',
@@ -999,7 +1028,9 @@
       activeDrawerDistributorId: null,
       backupPrefs: {
         autoDownloadDaily: false,
-        lastAutoDownloadDate: ''
+        lastAutoDownloadDate: '',
+        lastCloudBackupDate: '',
+        lastCloudBackupAt: ''
       }
     };
 
@@ -1024,6 +1055,10 @@
         .replace(/'/g, '&#39;');
     }
 
+    function sanitizeForFirestore(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
     function generateId(prefix = 'id') {
       return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     }
@@ -1043,6 +1078,22 @@
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const mIdx = parseInt(parts[1], 10) - 1;
       return `${parts[2]} ${months[mIdx] || parts[1]} ${parts[0]}`;
+    }
+
+    function formatDateTimeShort(isoStr) {
+      if (!isoStr) return '';
+      try {
+        const d = new Date(isoStr);
+        return d.toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (_) {
+        return isoStr;
+      }
     }
 
     function getCustomerFullName(cust) {
@@ -1102,7 +1153,6 @@
       };
     }
 
-    // Calculate paid & remaining balance per sponsorship transaction
     function getSponsorshipSettlementMap(excludePayoutId = null) {
       const map = new Map();
       const credits = state.transactions
@@ -1167,7 +1217,7 @@
       setTimeout(() => {
         el.style.opacity = '0';
         setTimeout(() => el.remove(), 250);
-      }, 3400);
+      }, 3600);
     }
 
     // ==================== LOCAL CACHE & BACKUP PREFS ====================
@@ -1180,6 +1230,7 @@
           if (Array.isArray(parsed.distributors)) state.distributors = parsed.distributors;
           if (Array.isArray(parsed.products)) state.products = parsed.products;
           if (Array.isArray(parsed.transactions)) state.transactions = parsed.transactions;
+          if (Array.isArray(parsed.cloudBackups)) state.cloudBackups = parsed.cloudBackups;
           if (parsed.companyProfile) {
             state.companyProfile = { ...state.companyProfile, ...parsed.companyProfile };
           }
@@ -1200,6 +1251,7 @@
           distributors: state.distributors,
           products: state.products,
           transactions: state.transactions,
+          cloudBackups: state.cloudBackups,
           companyProfile: state.companyProfile,
           savedAt: new Date().toISOString()
         }));
@@ -1229,13 +1281,86 @@
       triggerManualBackupDownload(true);
     }
 
-    // ==================== FIREBASE CLOUD SYNC ====================
+    // ==================== FIREBASE CLOUD SYNC & BACKUP SNAPSHOTS ====================
     function getPublicColRef(colName) {
       return collection(db, 'artifacts', appId, 'public', 'data', colName);
     }
 
     function getPublicDocRef(colName, docId) {
       return doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+    }
+
+    function setCloudDiagnostic(err) {
+      if (!err) {
+        cloudDiagnostic = null;
+        renderBackupDiagnostics();
+        return;
+      }
+      const code = err?.code || '';
+      const host = window.location.hostname || '';
+
+      if (code === 'auth/unauthorized-domain') {
+        cloudDiagnostic = {
+          title: 'Authorize Your Hosted Domain in Firebase',
+          message: `Firebase blocked sign-in because "${host}" is not in your Authorized Domains list. Open Firebase Console → Authentication → Settings → Authorized domains and add this domain:`,
+          copyText: host
+        };
+      } else if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found') {
+        cloudDiagnostic = {
+          title: 'Enable Anonymous Sign-In in Firebase',
+          message: 'Open Firebase Console → Build → Authentication → Sign-in method, click "Anonymous", toggle Enable ON, and click Save. Then tap Retry Connect.',
+          copyText: ''
+        };
+      } else if (code === 'permission-denied') {
+        cloudDiagnostic = {
+          title: 'Publish Firestore Security Rules',
+          message: 'Firebase connected, but Firestore Rules blocked read/write. Open Firebase Console → Firestore Database → Rules, paste this rule, and click Publish:',
+          copyText: 'allow read, write: if request.auth != null;'
+        };
+      } else if (code === 'not-found') {
+        cloudDiagnostic = {
+          title: 'Create Cloud Firestore Database',
+          message: 'Open Firebase Console → Build → Firestore Database → Create database (choose asia-south1 Mumbai), then tap Retry Connect.',
+          copyText: ''
+        };
+      } else {
+        cloudDiagnostic = {
+          title: 'Cloud Connection Notice',
+          message: `${err?.message || 'Unable to reach Firebase right now.'} Your entries are safely cached on this device.`,
+          copyText: ''
+        };
+      }
+      renderBackupDiagnostics();
+    }
+
+    function renderBackupDiagnostics() {
+      const box = document.getElementById('backup-diagnostic-box');
+      if (!box) return;
+      if (!cloudDiagnostic) {
+        box.classList.add('hidden');
+        return;
+      }
+      document.getElementById('backup-diagnostic-title').textContent = cloudDiagnostic.title;
+      document.getElementById('backup-diagnostic-msg').textContent = cloudDiagnostic.message;
+      const copyRow = document.getElementById('backup-diagnostic-copy-row');
+      const copyTxt = document.getElementById('backup-diagnostic-copy-text');
+      if (cloudDiagnostic.copyText) {
+        copyTxt.textContent = cloudDiagnostic.copyText;
+        copyRow.classList.remove('hidden');
+      } else {
+        copyRow.classList.add('hidden');
+      }
+      box.classList.remove('hidden');
+    }
+
+    function copyDiagnosticText() {
+      const text = document.getElementById('backup-diagnostic-copy-text')?.textContent || '';
+      if (!text) return;
+      navigator.clipboard?.writeText(text).then(() => {
+        showToast(`Copied "${text}" to clipboard.`);
+      }).catch(() => {
+        showToast(text);
+      });
     }
 
     function updateCloudStatusUI(status, customLabel = '') {
@@ -1252,7 +1377,7 @@
         dotClass = 'bg-emerald-500';
         label = customLabel || 'Cloud Live';
       } else if (status === 'offline') {
-        dotClass = 'bg-slate-400';
+        dotClass = 'bg-rose-500';
         label = customLabel || 'Local Mode';
       }
 
@@ -1269,6 +1394,7 @@
       populateFilterDropdowns();
       renderCompanyBranding();
       renderAllViews();
+      renderBackupModal();
       if (state.activeDrawerCustomerId) openCustomerDrawer(state.activeDrawerCustomerId, true);
       if (state.activeDrawerDistributorId) openDistributorDrawer(state.activeDrawerDistributorId, true);
     }
@@ -1282,13 +1408,24 @@
         const unsub = onSnapshot(
           getPublicColRef(colName),
           snapshot => {
-            const items = [];
-            snapshot.forEach(docSnap => {
-              items.push({ id: docSnap.id, ...docSnap.data() });
-            });
-            state[colName] = items;
+            setCloudDiagnostic(null);
             updateCloudStatusUI('live');
+
+            const cloudMap = new Map();
+            snapshot.forEach(docSnap => {
+              cloudMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+            });
+
+            // Preserve any local-only records that haven't reached Firestore yet, and push them up!
+            const localOnlyItems = (state[colName] || []).filter(item => item.id && !cloudMap.has(item.id));
+            localOnlyItems.forEach(item => {
+              cloudMap.set(item.id, item);
+              setDoc(getPublicDocRef(colName, item.id), sanitizeForFirestore(item)).catch(() => {});
+            });
+
+            state[colName] = Array.from(cloudMap.values());
             onCloudSnapshotUpdated();
+            maybeCreateDailyCloudBackup();
           },
           err => {
             handleFirestoreWriteError(err);
@@ -1297,6 +1434,24 @@
         unsubscribers.push(unsub);
       });
 
+      // Listen to saved Cloud Backup Snapshots
+      const backupsUnsub = onSnapshot(
+        getPublicColRef('backups'),
+        snapshot => {
+          const list = [];
+          snapshot.forEach(docSnap => {
+            list.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+          state.cloudBackups = list;
+          saveLocalCache();
+          renderCloudSnapshotsList();
+        },
+        err => console.warn('Cloud backups listener:', err)
+      );
+      unsubscribers.push(backupsUnsub);
+
+      // Listen to Company Profile Branding
       const settingsUnsub = onSnapshot(
         getPublicDocRef('settings', 'company_profile'),
         docSnap => {
@@ -1304,6 +1459,8 @@
             state.companyProfile = { ...state.companyProfile, ...docSnap.data() };
             saveLocalCache();
             renderCompanyBranding();
+          } else if (state.companyProfile.logoData || state.companyProfile.name !== 'SponsorLedger') {
+            setDoc(getPublicDocRef('settings', 'company_profile'), sanitizeForFirestore(state.companyProfile)).catch(() => {});
           }
         },
         err => console.warn('Settings listener:', err)
@@ -1317,7 +1474,8 @@
           updateCloudStatusUI('offline', 'Local Mode');
           return;
         }
-        app = initializeApp(firebaseConfig);
+        updateCloudStatusUI('syncing', 'Connecting...');
+        app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
 
@@ -1332,11 +1490,29 @@
           currentUser = user;
         });
 
+        setCloudDiagnostic(null);
         updateCloudStatusUI('live');
         startCloudListeners();
       } catch (err) {
-        console.error('Firebase init warning:', err);
-        updateCloudStatusUI('offline', 'Local Mode');
+        console.error('Firebase init error:', err);
+        setCloudDiagnostic(err);
+        const code = err?.code || '';
+        if (code === 'auth/unauthorized-domain') {
+          updateCloudStatusUI('offline', 'Auth Domain');
+        } else if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found') {
+          updateCloudStatusUI('offline', 'Enable Auth');
+        } else {
+          updateCloudStatusUI('offline', 'Local Mode');
+        }
+      }
+    }
+
+    async function retryFirebaseConnection() {
+      await initFirebase();
+      if (db && currentUser) {
+        showToast('Connected to Firebase Cloud!');
+      } else {
+        showToast('Still unable to connect—check the notice above.', 'warning');
       }
     }
 
@@ -1350,15 +1526,12 @@
 
     function handleFirestoreWriteError(err) {
       console.error('Firestore write error:', err);
+      setCloudDiagnostic(err);
       const code = err?.code || '';
       if (code === 'permission-denied') {
         updateCloudStatusUI('offline', 'Rules Blocked');
-        const lastTimeEl = document.getElementById('backup-last-time');
-        if (lastTimeEl) lastTimeEl.textContent = 'Update Firestore Security Rules in Firebase Console';
       } else if (code === 'not-found') {
         updateCloudStatusUI('offline', 'Create Firestore');
-        const lastTimeEl = document.getElementById('backup-last-time');
-        if (lastTimeEl) lastTimeEl.textContent = 'Create Firestore Database in Firebase Console';
       } else {
         updateCloudStatusUI('offline', 'Sync Warning');
       }
@@ -1373,9 +1546,8 @@
     }
 
     async function saveCloudRecord(colName, docId, payload) {
-      const record = { id: docId, ...payload };
+      const record = sanitizeForFirestore({ id: docId, ...payload });
 
-      // Optimistically save locally & update UI immediately so forms never hang open
       upsertLocalRecord(colName, docId, record);
       onCloudSnapshotUpdated();
       maybeAutoDownloadDailyJSON();
@@ -1390,14 +1562,18 @@
       try {
         const result = await Promise.race([
           writePromise.then(() => ({ synced: true })),
-          new Promise(resolve => setTimeout(() => resolve({ synced: 'pending' }), 3500))
+          new Promise(resolve => setTimeout(() => resolve({ synced: 'pending' }), 4000))
         ]);
 
         if (result.synced === true) {
+          setCloudDiagnostic(null);
           updateCloudStatusUI('live');
         } else {
           writePromise
-            .then(() => updateCloudStatusUI('live'))
+            .then(() => {
+              setCloudDiagnostic(null);
+              updateCloudStatusUI('live');
+            })
             .catch(err => handleFirestoreWriteError(err));
         }
         return result;
@@ -1416,12 +1592,150 @@
       try {
         await Promise.race([
           deleteDoc(getPublicDocRef(colName, docId)),
-          new Promise(resolve => setTimeout(resolve, 3500))
+          new Promise(resolve => setTimeout(resolve, 4000))
         ]);
         updateCloudStatusUI('live');
       } catch (err) {
         handleFirestoreWriteError(err);
       }
+    }
+
+    // ==================== CLOUD BACKUP SNAPSHOTS (AUTO DAILY + MANUAL) ====================
+    function maybeCreateDailyCloudBackup() {
+      if (!db || !currentUser) return;
+      const totalRecords = state.customers.length + state.distributors.length + state.products.length + state.transactions.length;
+      if (totalRecords === 0) return;
+      const today = getTodayISO();
+      if (state.backupPrefs.lastCloudBackupDate === today) return;
+
+      state.backupPrefs.lastCloudBackupDate = today;
+      saveBackupPrefs();
+      createCloudBackupSnapshot(true);
+    }
+
+    async function createCloudBackupSnapshot(isAuto = false) {
+      if (!db || !currentUser) {
+        await initFirebase();
+        if (!db || !currentUser) {
+          if (!isAuto) showToast('Cloud is offline. Check the notice in Cloud & Backup.', 'error');
+          return;
+        }
+      }
+
+      const btn = document.getElementById('btn-cloud-backup-now');
+      if (btn && !isAuto) {
+        btn.disabled = true;
+        btn.querySelector('span').textContent = 'Backing up to Cloud...';
+      }
+
+      try {
+        updateCloudStatusUI('syncing', 'Backing up...');
+
+        // 1. Push all live collections to Firestore in batches so every record is synced
+        const ops = [];
+        state.customers.forEach(c => { if (c.id) ops.push({ col: 'customers', id: c.id, doc: sanitizeForFirestore(c) }); });
+        state.distributors.forEach(d => { if (d.id) ops.push({ col: 'distributors', id: d.id, doc: sanitizeForFirestore(d) }); });
+        state.products.forEach(p => { if (p.id) ops.push({ col: 'products', id: p.id, doc: sanitizeForFirestore(p) }); });
+        state.transactions.forEach(t => { if (t.id) ops.push({ col: 'transactions', id: t.id, doc: sanitizeForFirestore(t) }); });
+
+        for (let i = 0; i < ops.length; i += 400) {
+          const batch = writeBatch(db);
+          ops.slice(i, i + 400).forEach(op => {
+            batch.set(getPublicDocRef(op.col, op.id), op.doc);
+          });
+          await batch.commit();
+        }
+
+        await setDoc(getPublicDocRef('settings', 'company_profile'), sanitizeForFirestore(state.companyProfile));
+
+        // 2. Save a dated Cloud Backup Snapshot document in Firestore `backups` collection
+        const today = getTodayISO();
+        const nowISO = new Date().toISOString();
+        const snapshotId = isAuto ? `daily_${today}` : `backup_${today}_${Date.now()}`;
+        const snapshotPayload = sanitizeForFirestore({
+          id: snapshotId,
+          label: isAuto ? `Auto Daily Backup (${formatDisplayDate(today)})` : `Manual Cloud Backup`,
+          createdAt: nowISO,
+          counts: {
+            customers: state.customers.length,
+            distributors: state.distributors.length,
+            products: state.products.length,
+            transactions: state.transactions.length
+          },
+          companyProfile: state.companyProfile,
+          customers: state.customers,
+          distributors: state.distributors,
+          products: state.products,
+          transactions: state.transactions
+        });
+
+        await setDoc(getPublicDocRef('backups', snapshotId), snapshotPayload);
+
+        state.backupPrefs.lastCloudBackupDate = today;
+        state.backupPrefs.lastCloudBackupAt = nowISO;
+        saveBackupPrefs();
+
+        setCloudDiagnostic(null);
+        updateCloudStatusUI('live');
+        renderBackupModal();
+        if (!isAuto) {
+          showToast(`Cloud backup saved (${ops.length} live records + snapshot)!`);
+        }
+      } catch (err) {
+        handleFirestoreWriteError(err);
+        if (!isAuto) {
+          showToast('Cloud backup failed—see instructions in Cloud & Backup.', 'error');
+        }
+      } finally {
+        if (btn && !isAuto) {
+          btn.disabled = false;
+          btn.querySelector('span').textContent = 'Backup to Cloud Now (Sync & Save Snapshot)';
+        }
+      }
+    }
+
+    function renderCloudSnapshotsList() {
+      const container = document.getElementById('cloud-snapshots-list');
+      const countEl = document.getElementById('cloud-snapshots-count');
+      if (!container) return;
+
+      const list = state.cloudBackups || [];
+      if (countEl) countEl.textContent = `${list.length} snapshot${list.length === 1 ? '' : 's'}`;
+
+      if (list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 py-2">No cloud backup snapshots yet. Tap "Backup to Cloud Now" above.</p>`;
+        return;
+      }
+
+      container.innerHTML = list.slice(0, 15).map(snap => {
+        const c = snap.counts || {
+          customers: (snap.customers || []).length,
+          distributors: (snap.distributors || []).length,
+          transactions: (snap.transactions || []).length
+        };
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2 text-xs">
+            <div class="min-w-0">
+              <p class="font-bold text-slate-800 truncate">${escapeHTML(snap.label || 'Cloud Snapshot')}</p>
+              <p class="text-[11px] text-slate-500">${formatDateTimeShort(snap.createdAt)} • ${c.customers || 0} Cust, ${c.transactions || 0} Entries</p>
+            </div>
+            <button type="button" onclick="restoreFromCloudSnapshot('${snap.id}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold shrink-0">Restore</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function restoreFromCloudSnapshot(snapshotId) {
+      const snap = (state.cloudBackups || []).find(s => s.id === snapshotId);
+      if (!snap) return;
+      openConfirmDialog(
+        'Restore Cloud Backup Snapshot?',
+        `Restore data from ${formatDateTimeShort(snap.createdAt)}? This will merge/update your live records with the backup.`,
+        async () => {
+          await importRecordsBatch(snap);
+          renderBackupModal();
+        }
+      );
     }
 
     // ==================== NAVIGATION & MODALS ====================
@@ -1582,10 +1896,10 @@
           updateCloudStatusUI('syncing');
           try {
             await Promise.race([
-              setDoc(getPublicDocRef('settings', 'company_profile'), {
+              setDoc(getPublicDocRef('settings', 'company_profile'), sanitizeForFirestore({
                 ...state.companyProfile,
                 updatedAt: new Date().toISOString()
-              }),
+              })),
               new Promise(resolve => setTimeout(resolve, 3500))
             ]);
             updateCloudStatusUI('live');
@@ -1621,7 +1935,6 @@
       const sortedCusts = [...state.customers].sort((a, b) => getCustomerFullName(a).localeCompare(getCustomerFullName(b)));
       const sortedDists = [...state.distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-      // Ledger Customer Filter
       const lCust = document.getElementById('ledger-filter-customer');
       if (lCust) {
         const cur = lCust.value;
@@ -1632,7 +1945,6 @@
         lCust.value = cur;
       }
 
-      // Ledger Distributor Filter
       const lDist = document.getElementById('ledger-filter-distributor');
       if (lDist) {
         const cur = lDist.value;
@@ -1641,7 +1953,6 @@
         lDist.value = cur;
       }
 
-      // Customer Preferred Distributor Dropdown
       const cPrefDist = document.getElementById('cust-preferred-distributor');
       if (cPrefDist) {
         const cur = cPrefDist.value;
@@ -1650,7 +1961,6 @@
         cPrefDist.value = cur;
       }
 
-      // Transaction Customer Dropdown
       const txCust = document.getElementById('tx-customer');
       if (txCust) {
         const cur = txCust.value;
@@ -1661,7 +1971,6 @@
         txCust.value = cur;
       }
 
-      // Transaction Distributors (Credit & Payout)
       populateTxDistributorDropdowns();
     }
 
@@ -1818,7 +2127,6 @@
           updatedAt: nowISO
         });
 
-        // Auto-register new product names in Product Master
         const newProductOps = mappedProducts
           .filter(mp => !state.products.some(p => (p.name || '').trim().toLowerCase() === mp.productName.toLowerCase()))
           .map(mp => saveCloudRecord('products', generateId('prod'), {
@@ -2247,7 +2555,6 @@
         html += `</optgroup>`;
       }
 
-      // Preserve custom product name if editing a legacy/custom entry
       const allKnown = new Set([
         ...mapped.map(m => (m.productName || '').trim().toLowerCase()),
         ...otherProds.map(p => (p.name || '').trim().toLowerCase())
@@ -2385,7 +2692,6 @@
       const settlementMap = getSponsorshipSettlementMap(excludePayoutId);
       const preSet = new Set(precheckedIds);
 
-      // Show unpaid or partially paid sponsorships (completely paid entries are hidden from future payouts)
       const eligibleCredits = state.transactions
         .filter(t => t.type === 'credit' && t.customerId === customerId)
         .filter(t => {
@@ -2662,7 +2968,6 @@
       document.getElementById('kpi-customers').textContent = String(state.customers.length);
       document.getElementById('kpi-customers-sub').textContent = `${state.distributors.length} distributor${state.distributors.length === 1 ? '' : 's'} mapped`;
 
-      // Filter & Sort Customer Balances
       const searchRaw = (document.getElementById('dash-search')?.value || '').trim();
       const clearBtn = document.getElementById('dash-search-clear');
       if (clearBtn) clearBtn.classList.toggle('hidden', !searchRaw);
@@ -2736,7 +3041,6 @@
         }).join('');
       }
 
-      // Recent Transactions (also synced to customer search on dashboard if text matches)
       const matchedCustomerIds = searchRaw && numericThreshold === null
         ? new Set(filtered.map(f => f.customer.id))
         : null;
@@ -3013,7 +3317,7 @@
               <div class="flex items-center gap-1.5">
                 <button type="button" onclick="openTransactionModal('credit', '${c.id}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold">+ Log</button>
                 <button type="button" onclick="openCustomerModal('${c.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Edit</button>
-                <button type="button" onclick="deleteCustomer('${c.id}')" class="px-2 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold">Del</button>
+                <button type="button" onclick="deleteCustomer('${c.id}')" class="px-2.5 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold">Del</button>
               </div>
             </div>
           </div>
@@ -3334,7 +3638,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       showToast('CSV exported.');
     }
 
@@ -3344,14 +3648,23 @@
     }
 
     function renderBackupModal() {
-      const wsEl = document.getElementById('backup-workspace-id');
+      const projEl = document.getElementById('backup-project-id');
       const cntEl = document.getElementById('backup-record-counts');
+      const lastEl = document.getElementById('backup-last-time');
       const togEl = document.getElementById('toggle-auto-download');
-      if (wsEl) wsEl.textContent = appId;
+
+      if (projEl) projEl.textContent = firebaseConfig?.projectId || appId;
       if (cntEl) {
         cntEl.textContent = `${state.customers.length} Customers • ${state.distributors.length} Dist • ${state.transactions.length} Entries`;
       }
+      if (lastEl) {
+        lastEl.textContent = state.backupPrefs.lastCloudBackupAt
+          ? `Last Cloud Backup: ${formatDateTimeShort(state.backupPrefs.lastCloudBackupAt)}`
+          : 'Syncs automatically across devices when connected.';
+      }
       if (togEl) togEl.checked = Boolean(state.backupPrefs.autoDownloadDaily);
+      renderBackupDiagnostics();
+      renderCloudSnapshotsList();
     }
 
     function toggleAutoDownloadSetting(checked) {
@@ -3378,7 +3691,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       if (!silent) showToast('JSON backup downloaded.');
     }
 
@@ -3407,10 +3720,10 @@
       const products = Array.isArray(data.products) ? data.products : [];
       const transactions = Array.isArray(data.transactions) ? data.transactions : [];
 
-      customers.forEach(c => { if (c.id) upsertLocalRecord('customers', c.id, c); });
-      distributors.forEach(d => { if (d.id) upsertLocalRecord('distributors', d.id, d); });
-      products.forEach(p => { if (p.id) upsertLocalRecord('products', p.id, p); });
-      transactions.forEach(t => { if (t.id) upsertLocalRecord('transactions', t.id, t); });
+      customers.forEach(c => { if (c.id) upsertLocalRecord('customers', c.id, sanitizeForFirestore(c)); });
+      distributors.forEach(d => { if (d.id) upsertLocalRecord('distributors', d.id, sanitizeForFirestore(d)); });
+      products.forEach(p => { if (p.id) upsertLocalRecord('products', p.id, sanitizeForFirestore(p)); });
+      transactions.forEach(t => { if (t.id) upsertLocalRecord('transactions', t.id, sanitizeForFirestore(t)); });
       if (data.companyProfile) {
         state.companyProfile = { ...state.companyProfile, ...data.companyProfile };
       }
@@ -3424,10 +3737,10 @@
       updateCloudStatusUI('syncing');
       try {
         const ops = [];
-        customers.forEach(c => { if (c.id) ops.push({ col: 'customers', id: c.id, doc: c }); });
-        distributors.forEach(d => { if (d.id) ops.push({ col: 'distributors', id: d.id, doc: d }); });
-        products.forEach(p => { if (p.id) ops.push({ col: 'products', id: p.id, doc: p }); });
-        transactions.forEach(t => { if (t.id) ops.push({ col: 'transactions', id: t.id, doc: t }); });
+        customers.forEach(c => { if (c.id) ops.push({ col: 'customers', id: c.id, doc: sanitizeForFirestore(c) }); });
+        distributors.forEach(d => { if (d.id) ops.push({ col: 'distributors', id: d.id, doc: sanitizeForFirestore(d) }); });
+        products.forEach(p => { if (p.id) ops.push({ col: 'products', id: p.id, doc: sanitizeForFirestore(p) }); });
+        transactions.forEach(t => { if (t.id) ops.push({ col: 'transactions', id: t.id, doc: sanitizeForFirestore(t) }); });
 
         for (let i = 0; i < ops.length; i += 400) {
           const batch = writeBatch(db);
@@ -3438,30 +3751,16 @@
         }
 
         if (data.companyProfile) {
-          await setDoc(getPublicDocRef('settings', 'company_profile'), state.companyProfile);
+          await setDoc(getPublicDocRef('settings', 'company_profile'), sanitizeForFirestore(state.companyProfile));
         }
 
+        setCloudDiagnostic(null);
         updateCloudStatusUI('live');
-        showToast(`Synced ${ops.length} records to cloud.`);
+        showToast(`Restored & synced ${ops.length} records to cloud.`);
       } catch (err) {
         handleFirestoreWriteError(err);
-        showToast('Saved locally; check Firebase rules for cloud sync.', 'warning');
+        showToast('Restored locally; check Firebase rules/auth for cloud sync.', 'warning');
       }
-    }
-
-    async function syncLocalCacheToCloud() {
-      if (!db || !currentUser) {
-        showToast('Cloud is not connected yet. Check Firebase Auth & Authorized Domains.', 'error');
-        return;
-      }
-      await importRecordsBatch({
-        companyProfile: state.companyProfile,
-        customers: state.customers,
-        distributors: state.distributors,
-        products: state.products,
-        transactions: state.transactions
-      });
-      renderBackupModal();
     }
 
     function confirmClearAllData() {
@@ -3559,10 +3858,13 @@
     window.exportLedgerCSV = exportLedgerCSV;
 
     window.openBackupModal = openBackupModal;
+    window.retryFirebaseConnection = retryFirebaseConnection;
+    window.copyDiagnosticText = copyDiagnosticText;
+    window.createCloudBackupSnapshot = createCloudBackupSnapshot;
+    window.restoreFromCloudSnapshot = restoreFromCloudSnapshot;
     window.toggleAutoDownloadSetting = toggleAutoDownloadSetting;
     window.triggerManualBackupDownload = triggerManualBackupDownload;
     window.handleRestoreFileSelect = handleRestoreFileSelect;
-    window.syncLocalCacheToCloud = syncLocalCacheToCloud;
     window.confirmClearAllData = confirmClearAllData;
 
     // ==================== BOOTSTRAP APP ====================
