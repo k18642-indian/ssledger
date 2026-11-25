@@ -73,10 +73,16 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Log Sponsorship</span>
       </button>
-      <button type="button" onclick="openTransactionModal('debit')" class="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs border border-emerald-200/80 transition">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Record Payout</span>
-      </button>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button type="button" onclick="openTransactionModal('debit')" class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs border border-emerald-200/80 transition">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Record Payout</span>
+        </button>
+        <button type="button" onclick="openTransactionModal('debit', '', '', true)" class="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 font-semibold text-xs border border-violet-200/80 transition" title="Give Advance Sponsorship for Future Orders">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Advance</span>
+        </button>
+      </div>
     </div>
 
     <!-- Navigation Links -->
@@ -155,16 +161,20 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Sponsorship Overview</h2>
-            <p class="text-xs sm:text-sm text-slate-500">Track accrued sponsorships, payouts, pending balances &amp; distributor collections in ₹</p>
+            <p class="text-xs sm:text-sm text-slate-500">Track accrued sponsorships, stock returns, advance sponsorships &amp; payouts in ₹</p>
           </div>
-          <div class="flex items-center gap-2">
-            <button type="button" onclick="openTransactionModal('credit')" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="openTransactionModal('credit')" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Log Sponsorship</span>
             </button>
-            <button type="button" onclick="openTransactionModal('debit')" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
+            <button type="button" onclick="openTransactionModal('debit')" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
               <span>Record Payout</span>
+            </button>
+            <button type="button" onclick="openTransactionModal('debit', '', '', true)" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Advance Sponsorship</span>
             </button>
           </div>
         </div>
@@ -216,9 +226,10 @@
 
               <!-- Status Filter Pills -->
               <div class="sm:col-span-4 flex rounded-xl bg-slate-100 p-1 gap-1">
-                <button type="button" data-dash-filter="pending" onclick="setDashPendingFilter('pending')" class="dash-filter-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition">Pending Due</button>
-                <button type="button" data-dash-filter="all" onclick="setDashPendingFilter('all')" class="dash-filter-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">All</button>
-                <button type="button" data-dash-filter="settled" onclick="setDashPendingFilter('settled')" class="dash-filter-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">Settled</button>
+                <button type="button" data-dash-filter="pending" onclick="setDashPendingFilter('pending')" class="dash-filter-btn flex-1 py-1.5 px-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-white text-slate-900 shadow-2xs transition">Due</button>
+                <button type="button" data-dash-filter="advance" onclick="setDashPendingFilter('advance')" class="dash-filter-btn flex-1 py-1.5 px-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 transition">Advance</button>
+                <button type="button" data-dash-filter="all" onclick="setDashPendingFilter('all')" class="dash-filter-btn flex-1 py-1.5 px-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 transition">All</button>
+                <button type="button" data-dash-filter="settled" onclick="setDashPendingFilter('settled')" class="dash-filter-btn flex-1 py-1.5 px-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-600 hover:text-slate-900 transition">Settled</button>
               </div>
 
               <!-- Sort Dropdown -->
@@ -285,7 +296,9 @@
               <select id="ledger-filter-type" onchange="renderLedger()" class="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm focus:border-indigo-500 focus:outline-none">
                 <option value="">All Types</option>
                 <option value="credit">Sponsorships</option>
-                <option value="debit">Payouts</option>
+                <option value="returns">Stock Returns (-)</option>
+                <option value="debit">All Payouts</option>
+                <option value="advances">Advance Sponsorships</option>
                 <option value="dist_collected">Rec'd from Dist.</option>
               </select>
               <input id="ledger-filter-month" type="month" onchange="renderLedger()" class="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm focus:border-indigo-500 focus:outline-none" />
@@ -572,10 +585,19 @@
 
         <!-- ==================== SPONSORSHIP (CREDIT) FIELDS ==================== -->
         <div id="tx-credit-fields" class="space-y-4">
+          <!-- Available Advance Balance Banner (Shown when customer holds Advance for Future Orders) -->
+          <div id="tx-credit-advance-banner" class="hidden p-3 rounded-2xl bg-violet-50 border border-violet-200 text-xs text-violet-900 flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-violet-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-violet-950">Available Advance Sponsorship: <span id="tx-credit-advance-amount">₹0</span></p>
+              <p class="text-[11px] text-violet-800 mt-0.5">This customer has advance sponsorship given for future orders. Logging this sponsorship will automatically adjust against their available advance balance.</p>
+            </div>
+          </div>
+
           <!-- Stock Supplied Distributor -->
           <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
             <div class="flex items-center justify-between gap-2">
-              <label class="text-xs font-bold text-slate-800">Stock Supplied Distributor *</label>
+              <label class="text-xs font-bold text-slate-800">Stock Supplied / Returned Distributor *</label>
               <button type="button" onclick="toggleQuickAddDistributor('credit')" class="text-xs font-semibold text-indigo-600 hover:underline">+ Quick Add</button>
             </div>
             <select id="tx-distributor" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium focus:border-indigo-500 focus:outline-none">
@@ -606,7 +628,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 class="text-xs sm:text-sm font-bold text-slate-900">Products &amp; Quantities</h4>
-                <p class="text-[11px] text-slate-500">Add one or multiple products for this sponsorship</p>
+                <p class="text-[11px] text-slate-500">Use <strong class="text-rose-600">minus (-)</strong> quantity (or tap <strong>±</strong>) for stock &amp; sponsorship returns</p>
               </div>
               <div class="flex items-center gap-1.5">
                 <button type="button" id="btn-add-all-mapped" onclick="populateAllMappedProductsForTx()" class="hidden px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
@@ -622,9 +644,9 @@
             <div id="tx-product-rows" class="space-y-2.5"></div>
 
             <!-- Live Grand Total Banner -->
-            <div class="p-3.5 rounded-2xl bg-indigo-600 text-white flex items-center justify-between">
+            <div id="tx-grand-total-banner" class="p-3.5 rounded-2xl bg-indigo-600 text-white flex items-center justify-between transition-colors">
               <div>
-                <p class="text-[11px] uppercase tracking-wider text-indigo-200 font-semibold">Sponsorship Grand Total</p>
+                <p id="tx-grand-total-title" class="text-[11px] uppercase tracking-wider text-indigo-200 font-semibold">Sponsorship Grand Total</p>
                 <p id="tx-items-count-label" class="text-xs text-indigo-100">0 active products</p>
               </div>
               <p id="tx-grand-total" class="text-xl sm:text-2xl font-extrabold">₹0</p>
@@ -632,14 +654,43 @@
           </div>
         </div>
 
-        <!-- ==================== RECORD PAYOUT (DEBIT) FIELDS ==================== -->
+        <!-- ==================== RECORD PAYOUT / ADVANCE (DEBIT) FIELDS ==================== -->
         <div id="tx-debit-fields" class="hidden space-y-4">
-          <!-- Select Unpaid / Partially Paid Sponsorships -->
-          <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2.5">
+          <!-- Payout Purpose Switcher: Regular Payout vs Advance for Future Orders -->
+          <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Payout Type</label>
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-200/70">
+              <button type="button" id="btn-payout-mode-regular" onclick="setPayoutAdvanceMode(false)" class="py-2 px-2.5 rounded-lg text-xs font-bold bg-white text-emerald-700 shadow-2xs transition">
+                Regular Payout
+              </button>
+              <button type="button" id="btn-payout-mode-advance" onclick="setPayoutAdvanceMode(true)" class="py-2 px-2.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">
+                Advance (Future Orders)
+              </button>
+            </div>
+            <input type="hidden" id="tx-payout-is-advance" value="false" />
+          </div>
+
+          <!-- Advance Sponsorship Banner & Future Order Reference -->
+          <div id="tx-advance-info-box" class="hidden p-3.5 rounded-2xl bg-violet-50/80 border border-violet-200 space-y-2.5">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-violet-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <div>
+                <h4 class="text-xs sm:text-sm font-bold text-violet-950">Advance Sponsorship for Future Orders</h4>
+                <p class="text-[11px] text-violet-800 mt-0.5">This payment will be held as an Advance Balance on the customer's account and automatically adjusted when future orders are logged.</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-violet-900 mb-1">Target Future Order / Commitment Details</label>
+              <input id="tx-advance-order-ref" type="text" placeholder="e.g. Advance for upcoming 50 bags order / Q4 commitment" class="w-full px-3.5 py-2 rounded-xl bg-white border border-violet-200 text-xs sm:text-sm focus:border-violet-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- Select Unpaid / Partially Paid Sponsorships (Hidden when recording Advance) -->
+          <div id="tx-payout-sponsorship-wrapper" class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 class="text-xs sm:text-sm font-bold text-slate-900">Select Sponsorship Transaction(s)</h4>
-                <p class="text-[11px] text-slate-600">Select one or multiple pending sponsorships (fully paid entries are hidden)</p>
+                <p class="text-[11px] text-slate-600">Select one or multiple pending sponsorships (fully paid/returned entries are hidden)</p>
               </div>
               <div class="flex items-center gap-1.5">
                 <button type="button" onclick="selectAllUnpaidPayoutSponsorships()" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-semibold">Select All Unpaid</button>
@@ -660,7 +711,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-semibold text-slate-700">Payout Amount (₹) *</label>
+                <label id="tx-payout-amount-label" class="text-xs font-semibold text-slate-700">Payout Amount (₹) *</label>
                 <button type="button" id="btn-pay-full-pending" onclick="fillFullCustomerPending()" class="hidden text-[11px] font-semibold text-emerald-700 hover:underline">Pay Full Pending</button>
               </div>
               <input id="tx-payout-amount" type="number" step="0.01" min="0" placeholder="0.00" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-base font-bold text-emerald-700 focus:bg-white focus:border-emerald-500 focus:outline-none" />
@@ -1092,75 +1143,159 @@
 
     function getCustomerMetrics(customerId) {
       let earned = 0;
+      let returnedAmount = 0;
       let paid = 0;
+      let advanceGiven = 0;
       let sponsorshipCount = 0;
+      let returnCount = 0;
       let payoutCount = 0;
       state.transactions.forEach(tx => {
         if (tx.customerId !== customerId) return;
         const amt = Number(tx.amount) || 0;
         if (tx.type === 'credit') {
           earned += amt;
-          sponsorshipCount++;
+          if (amt < 0) {
+            returnedAmount += Math.abs(amt);
+            returnCount++;
+          } else {
+            sponsorshipCount++;
+          }
         } else if (tx.type === 'debit') {
           paid += amt;
           payoutCount++;
+          if (tx.isAdvance) {
+            advanceGiven += amt;
+          }
         }
       });
+      const pending = Math.round((earned - paid) * 100) / 100;
       return {
         earned: Math.round(earned * 100) / 100,
+        returnedAmount: Math.round(returnedAmount * 100) / 100,
         paid: Math.round(paid * 100) / 100,
-        pending: Math.round((earned - paid) * 100) / 100,
+        advanceGiven: Math.round(advanceGiven * 100) / 100,
+        pending,
+        advanceBalance: pending < -0.005 ? Math.abs(pending) : 0,
         sponsorshipCount,
+        returnCount,
         payoutCount
       };
     }
 
     function getSponsorshipSettlementMap(excludePayoutId = null) {
       const map = new Map();
-      const credits = state.transactions
+      const advanceUsageMap = new Map();
+
+      const allCredits = state.transactions
         .filter(t => t.type === 'credit')
         .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
 
-      credits.forEach(c => {
+      const positiveCredits = allCredits.filter(c => (Number(c.amount) || 0) > 0);
+      const returnCredits = allCredits.filter(c => (Number(c.amount) || 0) < 0);
+
+      positiveCredits.forEach(c => {
         const total = Number(c.amount) || 0;
         map.set(c.id, {
           total,
+          returned: 0,
           paid: 0,
+          advanceUsed: 0,
           remaining: total,
-          status: total <= 0 ? 'paid' : 'unpaid'
+          status: 'unpaid'
         });
       });
 
+      // 1. Apply Return Sponsorship entries (negative quantity/amount) to reduce customer's positive sponsorships chronologically
+      returnCredits.forEach(ret => {
+        let retPool = Math.abs(Number(ret.amount) || 0);
+        positiveCredits
+          .filter(c => c.customerId === ret.customerId)
+          .forEach(c => {
+            if (retPool <= 0.005) return;
+            const entry = map.get(c.id);
+            if (!entry || entry.remaining <= 0.005) return;
+            const alloc = Math.min(retPool, entry.remaining);
+            entry.returned = Math.round((entry.returned + alloc) * 100) / 100;
+            entry.remaining = Math.max(0, Math.round((entry.remaining - alloc) * 100) / 100);
+            retPool = Math.round((retPool - alloc) * 100) / 100;
+          });
+      });
+
+      // 2. Apply explicit payout links first
       const debits = state.transactions
         .filter(t => t.type === 'debit' && t.id !== excludePayoutId)
         .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
 
+      const advancePools = [];
+
       debits.forEach(d => {
         const linked = Array.isArray(d.linkedTransactionIds) ? d.linkedTransactionIds : [];
-        if (linked.length === 0) return;
         let pool = Number(d.amount) || 0;
-        linked.forEach(cId => {
-          if (pool <= 0.005) return;
-          const entry = map.get(cId);
-          if (!entry || entry.remaining <= 0.005) return;
-          const alloc = Math.min(pool, entry.remaining);
-          entry.paid = Math.round((entry.paid + alloc) * 100) / 100;
-          entry.remaining = Math.max(0, Math.round((entry.total - entry.paid) * 100) / 100);
-          pool = Math.round((pool - alloc) * 100) / 100;
+        if (linked.length > 0) {
+          linked.forEach(cId => {
+            if (pool <= 0.005) return;
+            const entry = map.get(cId);
+            if (!entry || entry.remaining <= 0.005) return;
+            const alloc = Math.min(pool, entry.remaining);
+            entry.paid = Math.round((entry.paid + alloc) * 100) / 100;
+            entry.remaining = Math.max(0, Math.round((entry.remaining - alloc) * 100) / 100);
+            pool = Math.round((pool - alloc) * 100) / 100;
+          });
+        }
+        if (d.isAdvance) {
+          const totalAdv = Number(d.amount) || 0;
+          const alreadyUsed = Math.round((totalAdv - pool) * 100) / 100;
+          advancePools.push({
+            tx: d,
+            total: totalAdv,
+            used: alreadyUsed,
+            remaining: pool
+          });
+        }
+      });
+
+      // 3. Auto-apply remaining Advance Sponsorship balances against customer's unpaid future sponsorships
+      advancePools.forEach(adv => {
+        if (adv.remaining > 0.005) {
+          positiveCredits
+            .filter(c => c.customerId === adv.tx.customerId)
+            .forEach(c => {
+              if (adv.remaining <= 0.005) return;
+              const entry = map.get(c.id);
+              if (!entry || entry.remaining <= 0.005) return;
+              const alloc = Math.min(adv.remaining, entry.remaining);
+              entry.advanceUsed = Math.round((entry.advanceUsed + alloc) * 100) / 100;
+              entry.paid = Math.round((entry.paid + alloc) * 100) / 100;
+              entry.remaining = Math.max(0, Math.round((entry.remaining - alloc) * 100) / 100);
+              adv.used = Math.round((adv.used + alloc) * 100) / 100;
+              adv.remaining = Math.max(0, Math.round((adv.remaining - alloc) * 100) / 100);
+            });
+        }
+        advanceUsageMap.set(adv.tx.id, {
+          total: adv.total,
+          used: adv.used,
+          remaining: adv.remaining
         });
       });
 
       map.forEach(entry => {
         if (entry.remaining <= 0.005) {
           entry.remaining = 0;
-          entry.status = 'paid';
-        } else if (entry.paid > 0.005) {
+          if (entry.returned >= entry.total - 0.005) {
+            entry.status = 'returned';
+          } else if (entry.advanceUsed > 0.005 && entry.paid <= entry.advanceUsed + 0.005) {
+            entry.status = 'advance_paid';
+          } else {
+            entry.status = 'paid';
+          }
+        } else if (entry.paid > 0.005 || entry.returned > 0.005) {
           entry.status = 'partial';
         } else {
           entry.status = 'unpaid';
         }
       });
 
+      map._advanceUsageMap = advanceUsageMap;
       return map;
     }
 
@@ -1897,7 +2032,7 @@
     }
 
     // ==================== TRANSACTION MODAL (SPONSORSHIP & PAYOUT) ====================
-    function openTransactionModal(type = 'credit', preselectedCustomerId = '', preselectSponsorshipId = '') {
+    function openTransactionModal(type = 'credit', preselectedCustomerId = '', preselectSponsorshipId = '', isAdvance = false) {
       const form = document.querySelector('#modal-transaction form');
       if (form) form.reset();
       populateFilterDropdowns();
@@ -1907,6 +2042,7 @@
       document.getElementById('tx-remarks').value = '';
       document.getElementById('tx-collect-from-dist').checked = false;
       document.getElementById('tx-payout-from-dist').checked = false;
+      document.getElementById('tx-advance-order-ref').value = '';
       togglePayoutDistributorFields();
       toggleQuickAddDistributor('credit', false);
       toggleQuickAddDistributor('payout', false);
@@ -1914,13 +2050,14 @@
       const tabBar = document.getElementById('tx-tab-bar');
       if (tabBar) tabBar.classList.remove('hidden');
 
-      setTransactionModalType(type);
+      setTransactionModalType(type, false, isAdvance);
 
       if (preselectedCustomerId) {
         document.getElementById('tx-customer').value = preselectedCustomerId;
         onTxCustomerChange(preselectSponsorshipId);
       } else {
         document.getElementById('tx-customer-info').classList.add('hidden');
+        document.getElementById('tx-credit-advance-banner')?.classList.add('hidden');
         document.getElementById('tx-product-rows').innerHTML = '';
         addTxProductRow();
         renderPayoutSponsorshipChecklist('');
@@ -1945,7 +2082,7 @@
       document.getElementById('tx-date').value = tx.date || getTodayISO();
       document.getElementById('tx-remarks').value = tx.remarks || '';
 
-      setTransactionModalType(tx.type || 'credit', true);
+      setTransactionModalType(tx.type || 'credit', true, Boolean(tx.isAdvance));
       updateTxCustomerInfoBanner(tx.customerId);
 
       if (tx.type === 'credit') {
@@ -1963,6 +2100,7 @@
       } else {
         document.getElementById('tx-payout-amount').value = tx.amount || '';
         document.getElementById('tx-payout-mode').value = tx.paymentMode || 'UPI';
+        document.getElementById('tx-advance-order-ref').value = tx.advanceOrderRef || '';
         const linkedIds = Array.isArray(tx.linkedTransactionIds) ? tx.linkedTransactionIds : [];
         renderPayoutSponsorshipChecklist(tx.customerId, linkedIds, tx.id);
 
@@ -1978,7 +2116,56 @@
       openModal('modal-transaction');
     }
 
-    function setTransactionModalType(type, isEdit = false) {
+    function setPayoutAdvanceMode(isAdvance) {
+      const advInput = document.getElementById('tx-payout-is-advance');
+      if (advInput) advInput.value = isAdvance ? 'true' : 'false';
+
+      const regBtn = document.getElementById('btn-payout-mode-regular');
+      const advBtn = document.getElementById('btn-payout-mode-advance');
+      if (regBtn && advBtn) {
+        regBtn.className = !isAdvance
+          ? 'py-2 px-2.5 rounded-lg text-xs font-bold bg-white text-emerald-700 shadow-2xs transition'
+          : 'py-2 px-2.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition';
+        advBtn.className = isAdvance
+          ? 'py-2 px-2.5 rounded-lg text-xs font-bold bg-white text-violet-700 shadow-2xs transition'
+          : 'py-2 px-2.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition';
+      }
+
+      document.getElementById('tx-advance-info-box')?.classList.toggle('hidden', !isAdvance);
+      document.getElementById('tx-payout-sponsorship-wrapper')?.classList.toggle('hidden', isAdvance);
+
+      const amtLabel = document.getElementById('tx-payout-amount-label');
+      const amtInput = document.getElementById('tx-payout-amount');
+      const submitBtn = document.getElementById('tx-submit-btn');
+      const titleEl = document.getElementById('modal-tx-title');
+      const isEdit = Boolean(document.getElementById('tx-id')?.value);
+
+      if (amtLabel) {
+        amtLabel.textContent = isAdvance ? 'Advance Sponsorship Amount (₹) *' : 'Payout Amount (₹) *';
+      }
+      if (amtInput) {
+        amtInput.className = isAdvance
+          ? 'w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-base font-bold text-violet-700 focus:bg-white focus:border-violet-500 focus:outline-none'
+          : 'w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-base font-bold text-emerald-700 focus:bg-white focus:border-emerald-500 focus:outline-none';
+      }
+      if (document.getElementById('tx-type')?.value === 'debit') {
+        if (titleEl) {
+          titleEl.textContent = isEdit
+            ? (isAdvance ? 'Edit Advance Sponsorship' : 'Edit Payout Entry')
+            : (isAdvance ? 'Give Advance Sponsorship' : 'Record Payout');
+        }
+        if (submitBtn) {
+          submitBtn.textContent = isEdit
+            ? 'Update Entry'
+            : (isAdvance ? 'Save Advance Sponsorship' : 'Save Payout');
+          submitBtn.className = isAdvance
+            ? 'px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold shadow-sm'
+            : 'px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm';
+        }
+      }
+    }
+
+    function setTransactionModalType(type, isEdit = false, isAdvance = false) {
       document.getElementById('tx-type').value = type;
       const isCredit = type === 'credit';
 
@@ -1996,35 +2183,31 @@
       document.getElementById('tx-credit-fields').classList.toggle('hidden', !isCredit);
       document.getElementById('tx-debit-fields').classList.toggle('hidden', isCredit);
 
-      const titleEl = document.getElementById('modal-tx-title');
-      const submitBtn = document.getElementById('tx-submit-btn');
-      if (titleEl) {
-        titleEl.textContent = isEdit
-          ? (isCredit ? 'Edit Sponsorship Entry' : 'Edit Payout Entry')
-          : (isCredit ? 'Log Sponsorship' : 'Record Payout');
-      }
-      if (submitBtn) {
-        submitBtn.textContent = isEdit
-          ? 'Update Entry'
-          : (isCredit ? 'Save Sponsorship' : 'Save Payout');
-        submitBtn.className = isCredit
-          ? 'px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm'
-          : 'px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm';
-      }
-
-      const custId = document.getElementById('tx-customer').value;
-      if (custId && !isCredit) {
-        renderPayoutSponsorshipChecklist(custId);
+      if (isCredit) {
+        const titleEl = document.getElementById('modal-tx-title');
+        const submitBtn = document.getElementById('tx-submit-btn');
+        if (titleEl) titleEl.textContent = isEdit ? 'Edit Sponsorship Entry' : 'Log Sponsorship / Return';
+        if (submitBtn) {
+          submitBtn.textContent = isEdit ? 'Update Entry' : 'Save Sponsorship';
+          submitBtn.className = 'px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm';
+        }
+      } else {
+        setPayoutAdvanceMode(isAdvance);
+        const custId = document.getElementById('tx-customer').value;
+        if (custId) renderPayoutSponsorshipChecklist(custId);
       }
     }
 
     function updateTxCustomerInfoBanner(customerId) {
       const infoEl = document.getElementById('tx-customer-info');
+      const advBanner = document.getElementById('tx-credit-advance-banner');
+      const advAmtEl = document.getElementById('tx-credit-advance-amount');
       const btnAllMapped = document.getElementById('btn-add-all-mapped');
       const btnPayFull = document.getElementById('btn-pay-full-pending');
 
       if (!customerId) {
         infoEl.classList.add('hidden');
+        if (advBanner) advBanner.classList.add('hidden');
         if (btnAllMapped) btnAllMapped.classList.add('hidden');
         if (btnPayFull) btnPayFull.classList.add('hidden');
         return;
@@ -2037,15 +2220,26 @@
       if (btnAllMapped) btnAllMapped.classList.toggle('hidden', mappedCount === 0);
       if (btnPayFull) btnPayFull.classList.toggle('hidden', metrics.pending <= 0);
 
+      if (advBanner && advAmtEl) {
+        if (metrics.advanceBalance > 0.005) {
+          advAmtEl.textContent = formatINR(metrics.advanceBalance);
+          advBanner.classList.remove('hidden');
+        } else {
+          advBanner.classList.add('hidden');
+        }
+      }
+
       const subParts = [cust?.department, getCustomerOrgBranchLabel(cust)].filter(Boolean).join(' • ');
+      const balanceBadge = metrics.advanceBalance > 0.005
+        ? `<div class="font-bold text-violet-700">Advance Bal: ${formatINR(metrics.advanceBalance)}</div>`
+        : `<div class="font-bold ${metrics.pending > 0 ? 'text-amber-700' : 'text-emerald-700'}">Pending: ${formatINR(metrics.pending)}</div>`;
+
       infoEl.innerHTML = `
         <div class="min-w-0">
           <span class="font-bold text-slate-800">${escapeHTML(subParts || 'Customer Selected')}</span>
           <span class="text-slate-500 ml-1">(${mappedCount} mapped product${mappedCount === 1 ? '' : 's'})</span>
         </div>
-        <div class="font-bold ${metrics.pending > 0 ? 'text-amber-700' : 'text-emerald-700'}">
-          Pending: ${formatINR(metrics.pending)}
-        </div>
+        ${balanceBadge}
       `;
       infoEl.classList.remove('hidden');
     }
@@ -2142,25 +2336,45 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
-          <div class="col-span-4 sm:col-span-2">
+          <div class="col-span-3 sm:col-span-2">
             <select onchange="recalculateTxGrandTotal()" class="tx-row-unit w-full px-2 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm focus:border-indigo-500 focus:outline-none">
               <option value="Bag" ${unitVal === 'Bag' ? 'selected' : ''}>Bag</option>
               <option value="Unit" ${unitVal === 'Unit' ? 'selected' : ''}>Unit</option>
             </select>
           </div>
-          <div class="col-span-4 sm:col-span-2">
-            <input type="number" step="0.01" min="0" value="${qtyVal}" oninput="recalculateTxGrandTotal()" placeholder="Qty" class="tx-row-qty w-full px-2.5 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-semibold focus:border-indigo-500 focus:outline-none" />
+          <div class="col-span-5 sm:col-span-2 flex items-center gap-1">
+            <button type="button" onclick="toggleTxRowQtySign(this)" class="px-2 py-2 rounded-xl bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 text-xs font-extrabold shrink-0 transition" title="Toggle +/- for Stock Return">±</button>
+            <input type="number" step="0.01" value="${qtyVal}" oninput="recalculateTxGrandTotal()" placeholder="Qty" class="tx-row-qty w-full min-w-0 px-2 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-semibold focus:border-indigo-500 focus:outline-none" />
           </div>
           <div class="col-span-4 sm:col-span-2">
             <input type="number" step="0.01" min="0" value="${rateVal}" oninput="recalculateTxGrandTotal()" placeholder="₹ Rate" class="tx-row-rate w-full px-2.5 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-semibold focus:border-indigo-500 focus:outline-none" />
           </div>
         </div>
         <div class="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
-          <span>Line Subtotal</span>
+          <span class="tx-row-type-hint">Line Subtotal</span>
           <span class="tx-row-subtotal font-bold text-slate-800">₹0</span>
         </div>
       `;
       container.appendChild(row);
+      recalculateTxGrandTotal();
+    }
+
+    function toggleTxRowQtySign(btnEl) {
+      const row = btnEl.closest('.tx-item-row');
+      const qtyInput = row?.querySelector('.tx-row-qty');
+      if (!qtyInput) return;
+      const raw = (qtyInput.value || '').trim();
+      if (!raw) {
+        qtyInput.value = '-';
+        qtyInput.focus();
+      } else if (raw === '-') {
+        qtyInput.value = '';
+      } else {
+        const num = parseFloat(raw);
+        if (!isNaN(num)) {
+          qtyInput.value = String(-num);
+        }
+      }
       recalculateTxGrandTotal();
     }
 
@@ -2210,22 +2424,62 @@
     function recalculateTxGrandTotal() {
       let grand = 0;
       let activeCount = 0;
+      let hasReturn = false;
+
       document.querySelectorAll('#tx-product-rows .tx-item-row').forEach(row => {
         const pName = getRowProductName(row);
-        const qty = parseFloat(row.querySelector('.tx-row-qty').value) || 0;
+        const qtyInput = row.querySelector('.tx-row-qty');
+        const qty = parseFloat(qtyInput.value) || 0;
         const rate = parseFloat(row.querySelector('.tx-row-rate').value) || 0;
         const sub = Math.round(qty * rate * 100) / 100;
         const subEl = row.querySelector('.tx-row-subtotal');
-        if (subEl) subEl.textContent = formatINR(sub);
-        if (pName && qty > 0) {
+        const hintEl = row.querySelector('.tx-row-type-hint');
+        const isNeg = qty < 0;
+
+        if (qtyInput) {
+          qtyInput.classList.toggle('text-rose-700', isNeg);
+          qtyInput.classList.toggle('bg-rose-50/60', isNeg);
+          qtyInput.classList.toggle('border-rose-300', isNeg);
+        }
+        if (hintEl) {
+          hintEl.innerHTML = isNeg
+            ? `<span class="text-rose-600 font-bold">Stock Return (-) • Sponsorship Reversal</span>`
+            : `Line Subtotal`;
+        }
+        if (subEl) {
+          subEl.textContent = formatINR(sub);
+          subEl.className = isNeg
+            ? 'tx-row-subtotal font-bold text-rose-600'
+            : 'tx-row-subtotal font-bold text-slate-800';
+        }
+        if (pName && qty !== 0) {
           grand += sub;
           activeCount++;
+          if (isNeg) hasReturn = true;
         }
       });
+
+      grand = Math.round(grand * 100) / 100;
       const grandEl = document.getElementById('tx-grand-total');
       const cntEl = document.getElementById('tx-items-count-label');
+      const bannerEl = document.getElementById('tx-grand-total-banner');
+      const titleEl = document.getElementById('tx-grand-total-title');
+
       if (grandEl) grandEl.textContent = formatINR(grand);
-      if (cntEl) cntEl.textContent = `${activeCount} active product${activeCount === 1 ? '' : 's'}`;
+      if (cntEl) {
+        cntEl.textContent = `${activeCount} active product${activeCount === 1 ? '' : 's'}${hasReturn ? ' (includes return)' : ''}`;
+      }
+      if (bannerEl && titleEl) {
+        if (grand < 0) {
+          bannerEl.className = 'p-3.5 rounded-2xl bg-rose-600 text-white flex items-center justify-between transition-colors';
+          titleEl.className = 'text-[11px] uppercase tracking-wider text-rose-100 font-semibold';
+          titleEl.textContent = 'Sponsorship Return Total (-)';
+        } else {
+          bannerEl.className = 'p-3.5 rounded-2xl bg-indigo-600 text-white flex items-center justify-between transition-colors';
+          titleEl.className = 'text-[11px] uppercase tracking-wider text-indigo-200 font-semibold';
+          titleEl.textContent = 'Sponsorship Grand Total';
+        }
+      }
     }
 
     // ==================== PAYOUT MULTI-SPONSORSHIP CHECKLIST ====================
@@ -2382,7 +2636,7 @@
           const unitType = row.querySelector('.tx-row-unit').value || 'Bag';
           const qty = parseFloat(row.querySelector('.tx-row-qty').value) || 0;
           const rate = parseFloat(row.querySelector('.tx-row-rate').value) || 0;
-          if (pName && qty > 0) {
+          if (pName && qty !== 0) {
             const subtotal = Math.round(qty * rate * 100) / 100;
             items.push({ productName: pName, unitType, quantity: qty, rate, subtotal });
             grandTotal += subtotal;
@@ -2390,19 +2644,23 @@
         });
 
         if (items.length === 0) {
-          return showToast('Enter at least one product with a quantity greater than 0.', 'error');
+          return showToast('Enter at least one product with a non-zero quantity (use minus for returns).', 'error');
         }
+
+        const roundedTotal = Math.round(grandTotal * 100) / 100;
+        const isReturn = roundedTotal < 0 || items.some(i => i.quantity < 0);
 
         upsertLocalRecord('transactions', targetId, {
           customerId,
           customerNameSnapshot,
           type: 'credit',
+          isReturn,
           date,
           distributorId,
           distributorNameSnapshot,
           collectFromDistributor,
           items,
-          amount: Math.round(grandTotal * 100) / 100,
+          amount: roundedTotal,
           remarks,
           createdAt: existing?.createdAt || nowISO,
           updatedAt: nowISO
@@ -2410,15 +2668,17 @@
 
         event.target.reset();
         closeModal('modal-transaction');
-        showToast(id ? 'Sponsorship updated.' : 'Sponsorship logged.');
+        showToast(id ? 'Entry updated.' : (roundedTotal < 0 ? 'Stock & sponsorship return logged.' : 'Sponsorship logged.'));
       } else {
+        const isAdvance = document.getElementById('tx-payout-is-advance')?.value === 'true';
         const amount = parseFloat(document.getElementById('tx-payout-amount').value);
         const paymentMode = document.getElementById('tx-payout-mode').value || 'UPI';
         if (isNaN(amount) || amount <= 0) {
-          return showToast('Enter a valid payout amount greater than ₹0.', 'error');
+          return showToast('Enter a valid amount greater than ₹0.', 'error');
         }
 
-        const linkedTransactionIds = getSelectedPayoutSponsorshipIds();
+        const linkedTransactionIds = isAdvance ? [] : getSelectedPayoutSponsorshipIds();
+        const advanceOrderRef = isAdvance ? (document.getElementById('tx-advance-order-ref')?.value || '').trim() : '';
         const receivedFromDistributor = Boolean(document.getElementById('tx-payout-from-dist')?.checked);
         let distributorId = '';
         let distributorNameSnapshot = '';
@@ -2437,6 +2697,8 @@
           customerId,
           customerNameSnapshot,
           type: 'debit',
+          isAdvance,
+          advanceOrderRef,
           date,
           amount: Math.round(amount * 100) / 100,
           paymentMode,
@@ -2452,7 +2714,7 @@
 
         event.target.reset();
         closeModal('modal-transaction');
-        showToast(id ? 'Payout updated.' : 'Payout recorded.');
+        showToast(id ? 'Entry updated.' : (isAdvance ? 'Advance sponsorship recorded for future orders.' : 'Payout recorded.'));
       }
     }
 
@@ -2499,12 +2761,14 @@
       let totalPaid = 0;
       let totalDistRecovered = 0;
       let creditCount = 0;
+      let returnCount = 0;
 
       state.transactions.forEach(tx => {
         const amt = Number(tx.amount) || 0;
         if (tx.type === 'credit') {
           totalEarned += amt;
-          creditCount++;
+          if (amt < 0) returnCount++;
+          else creditCount++;
         } else if (tx.type === 'debit') {
           totalPaid += amt;
           if (tx.receivedFromDistributor) totalDistRecovered += amt;
@@ -2517,13 +2781,16 @@
         metrics: getCustomerMetrics(c.id)
       }));
       const customersWithDue = custSummaries.filter(x => x.metrics.pending > 0.005).length;
+      const totalAdvanceHeld = custSummaries.reduce((acc, x) => acc + x.metrics.advanceBalance, 0);
 
       document.getElementById('kpi-total-earned').textContent = formatINR(totalEarned);
-      document.getElementById('kpi-earned-sub').textContent = `${creditCount} sponsorship entr${creditCount === 1 ? 'y' : 'ies'}`;
+      document.getElementById('kpi-earned-sub').textContent = `${creditCount} orders${returnCount > 0 ? ` • ${returnCount} returns` : ''}`;
       document.getElementById('kpi-total-paid').textContent = formatINR(totalPaid);
       document.getElementById('kpi-paid-sub').textContent = `${formatINR(totalDistRecovered)} rec'd from dist.`;
       document.getElementById('kpi-net-pending').textContent = formatINR(netPending);
-      document.getElementById('kpi-pending-sub').textContent = `${customersWithDue} customer${customersWithDue === 1 ? '' : 's'} due`;
+      document.getElementById('kpi-pending-sub').textContent = totalAdvanceHeld > 0.005
+        ? `${customersWithDue} due • ${formatINR(totalAdvanceHeld)} advance`
+        : `${customersWithDue} customer${customersWithDue === 1 ? '' : 's'} due`;
       document.getElementById('kpi-customers-count').textContent = String(state.customers.length);
       document.getElementById('kpi-distributors-sub').textContent = `${state.distributors.length} dist • ${state.products.length} products`;
 
@@ -2539,11 +2806,12 @@
 
       let filteredCusts = custSummaries.filter(({ customer, metrics }) => {
         if (state.dashPendingFilter === 'pending' && metrics.pending <= 0.005) return false;
-        if (state.dashPendingFilter === 'settled' && metrics.pending > 0.005) return false;
+        if (state.dashPendingFilter === 'advance' && metrics.advanceBalance <= 0.005) return false;
+        if (state.dashPendingFilter === 'settled' && Math.abs(metrics.pending) > 0.005) return false;
 
         if (!rawQuery) return true;
         if (numericThreshold !== null) {
-          return metrics.pending >= numericThreshold;
+          return Math.abs(metrics.pending) >= numericThreshold;
         }
         const hay = [
           getCustomerFullName(customer),
@@ -2574,22 +2842,27 @@
           pendingListEl.innerHTML = filteredCusts.map(({ customer, metrics }) => {
             const sub = [customer.department, getCustomerOrgBranchLabel(customer)].filter(Boolean).join(' • ');
             const isDue = metrics.pending > 0.005;
+            const isAdv = metrics.advanceBalance > 0.005;
+            const statusPill = isDue
+              ? `<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold shrink-0">Due: ${formatINR(metrics.pending)}</span>`
+              : isAdv
+                ? `<span class="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/80 text-[11px] font-bold shrink-0">Advance: ${formatINR(metrics.advanceBalance)}</span>`
+                : `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold shrink-0">Settled</span>`;
+
             return `
               <div class="p-3.5 sm:px-5 hover:bg-slate-50/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div onclick="openCustomerDrawer('${customer.id}')" class="min-w-0 flex-1 cursor-pointer">
                   <div class="flex items-center gap-2">
                     <p class="text-sm font-bold text-slate-900 truncate">${escapeHTML(getCustomerFullName(customer))}</p>
-                    ${isDue
-                      ? `<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold shrink-0">Due: ${formatINR(metrics.pending)}</span>`
-                      : `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold shrink-0">Settled</span>`
-                    }
+                    ${statusPill}
                   </div>
                   <p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(sub || 'No department/hospital added')}</p>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Earned: ${formatINR(metrics.earned)} • Paid: ${formatINR(metrics.paid)}</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Net Earned: ${formatINR(metrics.earned)} • Paid: ${formatINR(metrics.paid)}</p>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <button type="button" onclick="openTransactionModal('credit', '${customer.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition">+ Units</button>
-                  <button type="button" onclick="openTransactionModal('debit', '${customer.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition">Pay</button>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onclick="openTransactionModal('credit', '${customer.id}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition">+ Order</button>
+                  <button type="button" onclick="openTransactionModal('debit', '${customer.id}')" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition">Pay</button>
+                  <button type="button" onclick="openTransactionModal('debit', '${customer.id}', '', true)" class="px-2.5 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-semibold transition" title="Give Advance Sponsorship">+ Adv</button>
                 </div>
               </div>
             `;
@@ -2626,6 +2899,8 @@
       const cust = state.customers.find(c => c.id === tx.customerId);
       const custName = cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || 'Customer');
       const isCredit = tx.type === 'credit';
+      const amt = Number(tx.amount) || 0;
+      const isReturn = isCredit && (amt < 0 || Boolean(tx.isReturn));
       const distName = tx.distributorNameSnapshot || getDistributorNameById(tx.distributorId) || '';
 
       let detailLine = '';
@@ -2633,23 +2908,43 @@
       if (isCredit) {
         const items = getTransactionItems(tx);
         detailLine = items.map(i => `${i.productName} (${i.quantity} ${i.unitType})`).join(', ') || 'Sponsorship';
-        const st = settlementMap.get(tx.id);
-        if (st) {
-          if (st.status === 'paid') {
-            badges += `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Paid</span>`;
-          } else if (st.status === 'partial') {
-            badges += `<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">Due: ${formatINR(st.remaining)}</span>`;
+        if (isReturn) {
+          badges += `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-bold">Stock Return (-)</span>`;
+        } else {
+          const st = settlementMap.get(tx.id);
+          if (st) {
+            if (st.status === 'advance_paid') {
+              badges += `<span class="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold">Advance Adjusted</span>`;
+            } else if (st.status === 'returned') {
+              badges += `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-bold">Returned</span>`;
+            } else if (st.status === 'paid') {
+              badges += `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Paid</span>`;
+            } else if (st.status === 'partial') {
+              badges += `<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">Due: ${formatINR(st.remaining)}</span>`;
+            }
           }
         }
         if (distName) {
           badges += `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium">Dist: ${escapeHTML(distName)}</span>`;
         }
       } else {
-        detailLine = `Payout via ${tx.paymentMode || 'Payment'}`;
+        detailLine = tx.isAdvance
+          ? `Advance Sponsorship (${tx.paymentMode || 'Paid'})${tx.advanceOrderRef ? ' • ' + tx.advanceOrderRef : ''}`
+          : `Payout via ${tx.paymentMode || 'Payment'}`;
+        if (tx.isAdvance) {
+          badges += `<span class="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold">Advance</span>`;
+        }
         if (tx.receivedFromDistributor && distName) {
           badges += `<span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">Rec'd: ${escapeHTML(distName)}</span>`;
         }
       }
+
+      const amtText = isCredit
+        ? (amt < 0 ? formatINR(amt) : `+${formatINR(amt)}`)
+        : `-${formatINR(amt)}`;
+      const amtColor = isCredit
+        ? (amt < 0 ? 'text-rose-600' : 'text-indigo-700')
+        : (tx.isAdvance ? 'text-violet-700' : 'text-emerald-600');
 
       return `
         <div class="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition">
@@ -2662,7 +2957,7 @@
             <p class="text-xs text-slate-500 truncate mt-0.5">${escapeHTML(detailLine)}</p>
           </div>
           <div class="text-right shrink-0">
-            <p class="text-sm font-extrabold ${isCredit ? 'text-indigo-700' : 'text-emerald-600'}">${isCredit ? '+' : '-'}${formatINR(tx.amount)}</p>
+            <p class="text-sm font-extrabold ${amtColor}">${amtText}</p>
           </div>
         </div>
       `;
@@ -2690,7 +2985,9 @@
           if (custId && tx.customerId !== custId) return false;
           if (distId && tx.distributorId !== distId) return false;
           if (typeFilter === 'credit' && tx.type !== 'credit') return false;
+          if (typeFilter === 'returns' && !(tx.type === 'credit' && ((Number(tx.amount) || 0) < 0 || tx.isReturn))) return false;
           if (typeFilter === 'debit' && tx.type !== 'debit') return false;
+          if (typeFilter === 'advances' && !(tx.type === 'debit' && tx.isAdvance)) return false;
           if (typeFilter === 'dist_collected' && !(tx.type === 'debit' && tx.receivedFromDistributor)) return false;
           if (monthFilter && !(tx.date || '').startsWith(monthFilter)) return false;
 
@@ -2704,6 +3001,7 @@
             cust?.branch,
             tx.distributorNameSnapshot || getDistributorNameById(tx.distributorId),
             tx.paymentMode,
+            tx.advanceOrderRef,
             tx.distCollectionRef,
             tx.remarks,
             ...items.map(i => i.productName)
@@ -2748,15 +3046,23 @@
       const custName = cust ? getCustomerFullName(cust) : (tx.customerNameSnapshot || 'Customer');
       const subOrg = [cust?.department, getCustomerOrgBranchLabel(cust)].filter(Boolean).join(' • ');
       const isCredit = tx.type === 'credit';
+      const amt = Number(tx.amount) || 0;
       const distName = tx.distributorNameSnapshot || getDistributorNameById(tx.distributorId) || '';
 
       if (isCredit) {
         const items = getTransactionItems(tx);
+        const isReturn = amt < 0 || Boolean(tx.isReturn);
         const st = settlementMap.get(tx.id);
         let statusPill = '';
         let payBtn = '';
-        if (st) {
-          if (st.status === 'paid') {
+        if (isReturn) {
+          statusPill = `<span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80 text-[11px] font-bold">Stock Return (-)</span>`;
+        } else if (st) {
+          if (st.status === 'advance_paid') {
+            statusPill = `<span class="px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/80 text-[11px] font-bold">Covered by Advance</span>`;
+          } else if (st.status === 'returned') {
+            statusPill = `<span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80 text-[11px] font-bold">Returned</span>`;
+          } else if (st.status === 'paid') {
             statusPill = `<span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold">Paid</span>`;
           } else if (st.status === 'partial') {
             statusPill = `<span class="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[11px] font-bold">Due: ${formatINR(st.remaining)}</span>`;
@@ -2767,19 +3073,22 @@
           }
         }
 
-        const itemsHTML = items.map(it => `
-          <div class="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-b-0">
-            <span class="font-medium text-slate-800">${escapeHTML(it.productName)} <span class="text-slate-500">(${it.quantity} ${escapeHTML(it.unitType)} × ${formatINR(it.rate)})</span></span>
-            <span class="font-bold text-slate-900">${formatINR(it.subtotal)}</span>
-          </div>
-        `).join('');
+        const itemsHTML = items.map(it => {
+          const isNegItem = (Number(it.quantity) || 0) < 0;
+          return `
+            <div class="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-b-0">
+              <span class="font-medium ${isNegItem ? 'text-rose-700' : 'text-slate-800'}">${escapeHTML(it.productName)} <span class="${isNegItem ? 'text-rose-500 font-semibold' : 'text-slate-500'}">(${it.quantity} ${escapeHTML(it.unitType)} × ${formatINR(it.rate)})</span></span>
+              <span class="font-bold ${isNegItem ? 'text-rose-700' : 'text-slate-900'}">${formatINR(it.subtotal)}</span>
+            </div>
+          `;
+        }).join('');
 
         return `
-          <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+          <div class="bg-white rounded-2xl p-4 border ${isReturn ? 'border-rose-200/80' : 'border-slate-200/80'} shadow-2xs space-y-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-bold">Sponsorship</span>
+                  <span class="px-2 py-0.5 rounded-md ${isReturn ? 'bg-rose-50 text-rose-700' : 'bg-indigo-50 text-indigo-700'} text-[11px] font-bold">${isReturn ? 'Stock & Sponsorship Return' : 'Sponsorship'}</span>
                   <span class="text-xs font-semibold text-slate-500">${formatDisplayDate(tx.date)}</span>
                   ${statusPill}
                 </div>
@@ -2787,16 +3096,16 @@
                 ${subOrg ? `<p class="text-xs text-slate-500">${escapeHTML(subOrg)}</p>` : ''}
               </div>
               <div class="text-right shrink-0">
-                <p class="text-base sm:text-lg font-extrabold text-indigo-700">+${formatINR(tx.amount)}</p>
+                <p class="text-base sm:text-lg font-extrabold ${amt < 0 ? 'text-rose-600' : 'text-indigo-700'}">${amt < 0 ? formatINR(amt) : '+' + formatINR(amt)}</p>
               </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5">
-              ${distName ? `<span ${tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID ? `onclick="openDistributorDrawer('${tx.distributorId}')"` : ''} class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold ${tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID ? 'cursor-pointer hover:bg-slate-200' : ''}">Stock Dist: ${escapeHTML(distName)}</span>` : ''}
+              ${distName ? `<span ${tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID ? `onclick="openDistributorDrawer('${tx.distributorId}')"` : ''} class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold ${tx.distributorId && tx.distributorId !== DIRECT_DISTRIBUTOR_ID ? 'cursor-pointer hover:bg-slate-200' : ''}">${isReturn ? 'Returned to Dist' : 'Stock Dist'}: ${escapeHTML(distName)}</span>` : ''}
               ${tx.collectFromDistributor ? `<span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold">Collectible from Dist.</span>` : ''}
             </div>
 
-            <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+            <div class="px-3 py-2 rounded-xl ${isReturn ? 'bg-rose-50/40 border border-rose-100' : 'bg-slate-50 border border-slate-100'}">
               ${itemsHTML}
             </div>
 
@@ -2811,7 +3120,9 @@
         `;
       }
 
-      // Debit / Payout Card
+      // Debit / Payout / Advance Card
+      const isAdvance = Boolean(tx.isAdvance);
+      const advUsage = isAdvance && settlementMap._advanceUsageMap ? settlementMap._advanceUsageMap.get(tx.id) : null;
       const linkedList = (tx.linkedTransactionIds || []).map(lid => {
         const ref = state.transactions.find(x => x.id === lid);
         if (!ref) return null;
@@ -2820,20 +3131,34 @@
       }).filter(Boolean);
 
       return `
-        <div class="bg-white rounded-2xl p-4 border border-emerald-200/70 shadow-2xs space-y-2.5">
+        <div class="bg-white rounded-2xl p-4 border ${isAdvance ? 'border-violet-200/80' : 'border-emerald-200/70'} shadow-2xs space-y-2.5">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold">Payout (${escapeHTML(tx.paymentMode || 'Paid')})</span>
+                ${isAdvance
+                  ? `<span class="px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200/80 text-[11px] font-bold">Advance Sponsorship (${escapeHTML(tx.paymentMode || 'Paid')})</span>`
+                  : `<span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold">Payout (${escapeHTML(tx.paymentMode || 'Paid')})</span>`
+                }
                 <span class="text-xs font-semibold text-slate-500">${formatDisplayDate(tx.date)}</span>
               </div>
               <h4 onclick="openCustomerDrawer('${tx.customerId}')" class="text-sm sm:text-base font-extrabold text-slate-900 mt-1 cursor-pointer hover:text-indigo-600">${escapeHTML(custName)}</h4>
               ${subOrg ? `<p class="text-xs text-slate-500">${escapeHTML(subOrg)}</p>` : ''}
             </div>
             <div class="text-right shrink-0">
-              <p class="text-base sm:text-lg font-extrabold text-emerald-600">-${formatINR(tx.amount)}</p>
+              <p class="text-base sm:text-lg font-extrabold ${isAdvance ? 'text-violet-700' : 'text-emerald-600'}">-${formatINR(tx.amount)}</p>
             </div>
           </div>
+
+          ${isAdvance ? `
+            <div class="p-2.5 rounded-xl bg-violet-50/70 border border-violet-200/70 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div>
+                <span class="font-bold text-violet-950">For Future Orders</span>
+                ${tx.advanceOrderRef ? `<span class="text-violet-800 ml-1">• ${escapeHTML(tx.advanceOrderRef)}</span>` : ''}
+                ${advUsage ? `<p class="text-[11px] text-violet-700 mt-0.5">Adjusted: <strong>${formatINR(advUsage.used)}</strong> • Remaining Advance: <strong>${formatINR(advUsage.remaining)}</strong></p>` : ''}
+              </div>
+              <button type="button" onclick="openTransactionModal('credit', '${tx.customerId}')" class="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold shrink-0">+ Log Future Order</button>
+            </div>
+          ` : ''}
 
           ${tx.receivedFromDistributor && distName ? `
             <div class="flex flex-wrap items-center gap-1.5">
@@ -2900,8 +3225,8 @@
                   <h3 class="text-base font-extrabold text-slate-900 truncate hover:text-indigo-600">${escapeHTML(getCustomerFullName(c))}</h3>
                   <p class="text-xs text-slate-500 truncate">${escapeHTML(sub || 'No department/hospital specified')}</p>
                 </div>
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold shrink-0 ${metrics.pending > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}">
-                  ${metrics.pending > 0 ? 'Due: ' + formatINR(metrics.pending) : 'Settled'}
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold shrink-0 ${metrics.pending > 0.005 ? 'bg-amber-50 text-amber-700' : metrics.advanceBalance > 0.005 ? 'bg-violet-50 text-violet-700' : 'bg-emerald-50 text-emerald-700'}">
+                  ${metrics.pending > 0.005 ? 'Due: ' + formatINR(metrics.pending) : metrics.advanceBalance > 0.005 ? 'Adv: ' + formatINR(metrics.advanceBalance) : 'Settled'}
                 </span>
               </div>
 
@@ -2954,22 +3279,30 @@
       bodyEl.innerHTML = `
         <div class="grid grid-cols-3 gap-2.5">
           <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-            <p class="text-[11px] text-slate-500">Earned</p>
+            <p class="text-[11px] text-slate-500">Net Earned</p>
             <p class="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5">${formatINR(metrics.earned)}</p>
           </div>
           <div class="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
-            <p class="text-[11px] text-emerald-700">Paid</p>
+            <p class="text-[11px] text-emerald-700">Paid / Adv</p>
             <p class="text-sm sm:text-base font-extrabold text-emerald-700 mt-0.5">${formatINR(metrics.paid)}</p>
           </div>
-          <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80">
-            <p class="text-[11px] text-amber-800">Pending</p>
-            <p class="text-sm sm:text-base font-extrabold text-amber-700 mt-0.5">${formatINR(metrics.pending)}</p>
-          </div>
+          ${metrics.advanceBalance > 0.005 ? `
+            <div class="p-3 rounded-2xl bg-violet-50/80 border border-violet-200/80">
+              <p class="text-[11px] text-violet-800">Advance Bal</p>
+              <p class="text-sm sm:text-base font-extrabold text-violet-700 mt-0.5">${formatINR(metrics.advanceBalance)}</p>
+            </div>
+          ` : `
+            <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+              <p class="text-[11px] text-amber-800">Pending</p>
+              <p class="text-sm sm:text-base font-extrabold text-amber-700 mt-0.5">${formatINR(metrics.pending)}</p>
+            </div>
+          `}
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <button type="button" onclick="openTransactionModal('credit', '${cust.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-sm">+ Log Sponsorship</button>
-          <button type="button" onclick="openTransactionModal('debit', '${cust.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 text-white text-xs font-semibold shadow-sm">Record Payout</button>
+          <button type="button" onclick="openTransactionModal('credit', '${cust.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-sm">+ Order / Return</button>
+          <button type="button" onclick="openTransactionModal('debit', '${cust.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 text-white text-xs font-semibold shadow-sm">Payout</button>
+          <button type="button" onclick="openTransactionModal('debit', '${cust.id}', '', true)" class="flex-1 py-2.5 px-3 rounded-xl bg-violet-600 text-white text-xs font-semibold shadow-sm">+ Advance</button>
           <button type="button" onclick="openCustomerModal('${cust.id}')" class="py-2.5 px-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">Edit</button>
         </div>
 
@@ -3208,16 +3541,17 @@
 
         if (tx.type === 'credit') {
           const items = getTransactionItems(tx);
+          const entryTypeLabel = (Number(tx.amount) || 0) < 0 || tx.isReturn ? 'Stock Return' : 'Sponsorship';
           if (items.length === 0) {
             rows.push([
-              tx.date, 'Sponsorship', custName, dept, org, branch, distName,
+              tx.date, entryTypeLabel, custName, dept, org, branch, distName,
               tx.collectFromDistributor ? 'Yes' : 'No',
               '', '', '', '', tx.amount || 0, '', '', '', '', tx.remarks || ''
             ].map(csvEscape).join(','));
           } else {
             items.forEach(it => {
               rows.push([
-                tx.date, 'Sponsorship', custName, dept, org, branch, distName,
+                tx.date, (Number(it.quantity) || 0) < 0 ? 'Stock Return' : 'Sponsorship', custName, dept, org, branch, distName,
                 tx.collectFromDistributor ? 'Yes' : 'No',
                 it.productName, it.unitType, it.quantity, it.rate, it.subtotal,
                 '', '', '', '', tx.remarks || ''
@@ -3230,10 +3564,15 @@
             return ref ? `${ref.date} (${formatINR(ref.amount)})` : lid;
           }).join('; ');
 
+          const payoutTypeLabel = tx.isAdvance ? 'Advance Sponsorship (Future Orders)' : 'Payout';
+          const linkedOrAdvanceInfo = tx.isAdvance
+            ? (tx.advanceOrderRef ? `Advance Ref: ${tx.advanceOrderRef}` : 'For Future Orders')
+            : linkedSummary;
+
           rows.push([
-            tx.date, 'Payout', custName, dept, org, branch, '', '',
+            tx.date, payoutTypeLabel, custName, dept, org, branch, '', '',
             '', '', '', '', tx.amount || 0, tx.paymentMode || '',
-            linkedSummary,
+            linkedOrAdvanceInfo,
             tx.receivedFromDistributor ? `Yes (${distName})` : 'No',
             tx.distCollectionRef || '',
             tx.remarks || ''
